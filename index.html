@@ -393,7 +393,8 @@ function tasks(lnId){const out=[];
     const monthly=hhMonthly(h);
     if(monthly&&mIdx(h.last)!==CUR){const why=[];let pr=2;
       for(const p of ps){const l=lastBP(p),lv=S.v.filter(v=>v.p===p.id).pop();
-        if(isPatient(p)&&lv&&lv.med==="n"){why.push(p.name+" was not taking the medicine");pr=1;}
+        if((p.htn.dx&&!p.htn.rx)||(p.dm.dx&&!p.dm.rx)){why.push(p.name+": diagnosed, not on treatment");pr=1;}
+        else if(isPatient(p)&&lv&&lv.med==="n"){why.push(p.name+" said at the last visit that the medicine was not taken every day");pr=1;}
         else if(raisedOnce(p)){why.push(p.name+": re-check a raised reading");pr=1;}
         else if(l&&(l.s>=160||l.di>=100)){why.push(p.name+": last reading "+bpTxt(l));pr=1;}
         else if(isPatient(p))why.push(p.name+": monthly visit");}
@@ -450,7 +451,7 @@ function spark(p){const a=p.bp.slice(-10);if(a.length<2)return"";const W=300,H=7
 
 /* ---------- the home visit: checks and counselling in one flow ---------- */
 function startVisit(pid,kind){const p=IX.p[pid],lv=S.v.filter(v=>v.p===pid).pop();
-  UI.F={pid,kind,warn:[],preg:p.preg?"y":p.sex==="F"&&p.age<50?"n":null,dxH:p.htn.dx?"y":"n",dxD:p.dm.dx?"y":"n",r:[["",""],["",""],["",""]],nobp:false,med:null,why:null,medHome:null,review:null,nhis:null,kept:null,low:null,feet:null,
+  UI.F={pid,kind,warn:[],askPreg:p.sex==="F"&&p.age<50,preg:null,dxH:p.htn.dx?"y":null,dxD:p.dm.dx?"y":null,r:[["",""],["",""],["",""]],nobp:false,med:null,why:null,medHome:null,review:null,nhis:null,kept:null,low:null,feet:null,
     salt:null,drinks:null,act:"",tob:null,fam:null,prev:null,waist:"",wt:"",commit:[],who:"",last:lv&&lv.commit,tried:false,nV:S.v.filter(v=>v.p===pid&&v.kind!=="census").length};UI.mode="visit";}
 function avgBP(F){const v=F.r.map(x=>[+x[0],+x[1]]),ok=i=>v[i][0]>=60&&v[i][0]<=300&&v[i][1]>=30&&v[i][1]<=200;
   if(!ok(0)||!ok(1))return{need3:false};const far=Math.abs(v[0][0]-v[1][0])>10||Math.abs(v[0][1]-v[1][1])>10;
@@ -478,9 +479,9 @@ function dynHtml(st){const F=UI.F;let b="";
 function commitHtml(st){const F=UI.F,opts=[...new Set(st.pages.flatMap(k=>PAGES[k][4]))];return multi("commit",opts,F.commit,true);}
 function vVisit(){const F=UI.F,st=visitState(),p=st.p,prom=F.kind==="prom",miss=k=>F.tried&&k;
   let o='<button class="link" data-act="cancel">‹ Cancel</button><h1>'+(prom?"Blood pressure check: ":"Home visit: ")+esc(p.name)+"</h1><p class='muted'>"+(p.sex==="F"?"Woman":"Man")+", "+p.age+" years. "+(prom?"":"Ask who may stay in the room before you speak about readings or medicines.")+"</p>";
-  o+='<div class="card"><h3>Step 1. Greet and ask</h3>'+q("Does the person have any of these today?",multi("warn",WARN,F.warn,false,"None of these"),miss(!F.warn.length))+(F.preg!=null?q("Is she pregnant?",seg("preg",YN,F.preg)):"")+"</div>";
-  o+='<div class="card"><h3>Step 2. Diagnosis and blood pressure</h3>'+q("Has a health worker ever told you that you have high blood pressure?",p.htn.dx?'<p><span class="chip info">Yes, on record</span></p>':seg("dxH",YN,F.dxH))+
-     q("Has a health worker ever told you that you have diabetes, or sugar disease?",p.dm.dx?'<p><span class="chip info">Yes, on record</span></p>':seg("dxD",YN,F.dxD))+
+  o+='<div class="card"><h3>Step 1. Greet and ask</h3>'+q("Does the person have any of these today?",multi("warn",WARN,F.warn,false,"None of these"),miss(!F.warn.length))+(F.askPreg?q("Is she pregnant?",seg("preg",YN,F.preg),miss(!F.preg),p.preg?"Recorded as pregnant at an earlier visit.":""):"")+"</div>";
+  o+='<div class="card"><h3>Step 2. Diagnosis and blood pressure</h3>'+q("Has a health worker ever told you that you have high blood pressure?",p.htn.dx?'<p><span class="chip info">Yes, on record</span></p>':seg("dxH",YN,F.dxH),miss(!F.dxH))+
+     q("Has a health worker ever told you that you have diabetes, or sugar disease?",p.dm.dx?'<p><span class="chip info">Yes, on record</span></p>':seg("dxD",YN,F.dxD),miss(!F.dxD))+
      '<div class="q'+(miss(!F.nobp&&st.a.s==null)?" miss":"")+'"><label class="t">Blood pressure</label><p class="small muted">Seated, back supported, feet flat, arm at heart level, five minutes of rest. Two readings, one to two minutes apart.</p>'+
      (F.nobp?"":[0,1,2].map(i=>'<div class="row" id="r'+i+'"'+(i===2&&!st.a.need3?" hidden":"")+'><span style="width:110px">'+(i===2?"Third reading":"Reading "+(i+1))+"</span>"+num("r."+i+".0",F.r[i][0],"upper",90)+"<span>/</span>"+num("r."+i+".1",F.r[i][1],"lower",90)+(i===2?'<span class="small muted">The first two differ by more than 10.</span>':"")+"</div>").join(""))+
      '<label class="row"><input type="checkbox" data-c="nobp"'+(F.nobp?" checked":"")+' style="min-height:0"> No reading today (no machine, or the person declined)</label><div id="dyn">'+dynHtml(st)+"</div></div></div>";
@@ -502,9 +503,9 @@ function vVisit(){const F=UI.F,st=visitState(),p=st.p,prom=F.kind==="prom",miss=
   o+='<div class="card"><h3>'+(prom?"Record":"Step 6. Record, refer and plan")+"</h3>"+(F.tried?'<div class="note bad">Please complete the items marked with *.</div>':"")+'<div class="row"><button class="pri tap" data-act="save">Save the visit</button></div></div>';
   return o;}
 function saveVisit(){const F=UI.F,st=visitState(),p=st.p,h=IX.hh[p.hh],prom=F.kind==="prom";
-  if(!F.warn.length||(!F.nobp&&st.a.s==null)||(!prom&&st.dx&&(!F.med||(F.med==="n"&&!F.why)))){F.tried=true;return render();}
+  if(!F.warn.length||!F.dxH||!F.dxD||(F.askPreg&&!F.preg)||(!F.nobp&&st.a.s==null)||(!prom&&st.dx&&(!F.med||(F.med==="n"&&!F.why)))){F.tried=true;return render();}
   if(F.dxH==="y"&&!p.htn.dx)p.htn={dx:true,src:"self",dxDate:TODAY};if(F.dxD==="y"&&!p.dm.dx)p.dm={dx:true,src:"self",dxDate:TODAY};
-  if(F.preg!=null)p.preg=F.preg==="y";
+  if(F.askPreg)p.preg=F.preg==="y";
   // decide before today's reading is stored, so "raised on a second day" counts earlier days only
   const dec=st.dec;const v={id:uid("v"),d:TODAY,hh:h.id,p:p.id,by:UI.who,kind:prom?"prom":st.monthly?"home":"screen",warn:st.warn,pages:st.pages,med:F.med,why:F.med==="n"?F.why:null,medHome:F.medHome==="y",nhis:F.nhis==="y",kept:F.kept==="y",commit:F.commit.join("; "),who:F.who,act:dec&&dec.code};
   if(st.a.s!=null){p.bp.push({d:TODAY,s:st.a.s,di:st.a.di,by:UI.who,src:prom?"prom":"visit"});v.s=st.a.s;v.di=st.a.di;}
@@ -632,7 +633,7 @@ function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
 function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='n'>"+v+"</td></tr>";
   return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("Draft diabetes-risk score that counts as raised",CFG.riskFlag+" of 5"),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.2, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.3, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
@@ -645,7 +646,7 @@ function roleSel(){const g=(r,l)=>'<optgroup label="'+l+'">'+S.w.filter(w=>w.rol
   $("#role").innerHTML=g("admin","Administrator")+g("prom","Promoters (CHO)")+g("clinic","Clinic")+g("lnt","Leader Neighbor Trainers")+g("ln","Leader Neighbors");$("#role").value=UI.who;}
 function setPath(o,path,v){const k=path.split(".");for(let i=0;i<k.length-1;i++)o=o[k[i]];o[k[k.length-1]]=v;}
 document.addEventListener("click",e=>{const el=e.target.closest("button,[data-pid]");if(!el)return;const d=el.dataset;
-  if(d.f){UI.F[d.f]=UI.F[d.f]===d.v&&!["dxH","dxD"].includes(d.f)?null:d.v;UI.keep=true;return render();}
+  if(d.f){UI.F[d.f]=UI.F[d.f]===d.v?null:d.v;UI.keep=true;return render();}
   if(d.m){const arr=d.m==="gatt"?UI.G.att:UI.F[d.m];if(d.v==="__none"){arr.length=0;arr.push("__none");}else{const i=arr.indexOf(d.v),n=arr.indexOf("__none");if(n>=0)arr.splice(n,1);const j=arr.indexOf(d.v);if(j>=0)arr.splice(j,1);else arr.push(d.v);}UI.keep=true;return render();}
   if(d.tab){UI.tab=d.tab;UI.mode=null;UI.F=null;UI.all=false;UI.q="";return render();}
   if(d.hh){UI.back=UI.mode?null:UI.tab;UI.hh=d.hh;UI.mode="hh";return render();}
