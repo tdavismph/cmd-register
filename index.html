@@ -362,11 +362,11 @@ const ic=k=>'<svg viewBox="0 0 120 120" width="96" height="96" fill="none" strok
 /* ---------- screen state ---------- */
 const UI={who:"adm",tab:null,hh:null,pid:null,F:null,mode:null,area:"all",q:"",all:false,note:null};
 const me=()=>IX.w[UI.who];
-const TABS={ln:[["today","Today"],["hhs","Households"],["group","Group lesson"],["reports","My results"]],
-  lnt:[["coach","My Care Group"],["refs","Referrals"],["hhs","Households"],["reports","Results"]],
-  prom:[["screen","Screening day"],["recheck","BP re-checks"],["refs","Referrals"],["coach","Quality"],["reports","Reports"]],
-  clinic:[["refs","Referrals"],["patients","Patients"],["reports","Reports"]],
-  admin:[["reports","Reports"],["refs","Referrals"],["workers","Workers"],["settings","Settings"]]};
+const TABS={ln:[["today","Today"],["hhs","Households"],["group","Group lesson"],["reports","My results"],["pages","Counselling pages"]],
+  lnt:[["coach","My Care Group"],["refs","Referrals"],["hhs","Households"],["reports","Results"],["pages","Counselling pages"]],
+  prom:[["screen","Screening day"],["recheck","BP re-checks"],["refs","Referrals"],["coach","Quality"],["reports","Reports"],["pages","Counselling pages"]],
+  clinic:[["refs","Referrals"],["patients","Patients"],["reports","Reports"],["pages","Counselling pages"]],
+  admin:[["reports","Reports"],["refs","Referrals"],["workers","Workers"],["settings","Settings"],["pages","Counselling pages"]]};
 const ROLE={admin:"Administrator",clinic:"Clinic",prom:"Promoter (CHO)",lnt:"Leader Neighbor Trainer",ln:"Leader Neighbor"};
 const lnsOf=w=>w.role==="ln"?[w.id]:w.role==="lnt"?S.w.filter(x=>x.lnt===w.id).map(x=>x.id):S.w.filter(x=>x.role==="ln").map(x=>x.id);
 function scope(){const w=me();let ids=lnsOf(w);if(UI.area!=="all"){if(UI.area.startsWith("cg"))ids=ids.filter(i=>IX.w[i].cg===+UI.area.slice(2));else if(ids.includes(UI.area))ids=[UI.area];}return new Set(ids);}
@@ -472,6 +472,15 @@ function visitState(){const F=UI.F,p=IX.p[F.pid],a=F.nobp?{}:avgBP(F),warn=F.war
   const pages=F.kind==="prom"?[]:find.length?find.slice(0,2):[monthly?LESSONS[CUR][3]:(PREV_TOPICS.find(t=>!h.topics.includes(t))||PREV_TOPICS[CUR%5])];
   return{p,a,warn,dx,dxH,dec,pages,monthly};}
 function pageHtml(k){const P=PAGES[k];return '<div class="card" style="border-width:2px"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><div style="color:var(--accent);flex:none">'+ic(P[0])+'</div><div class="grow"><h3>Counselling page</h3><h2>'+esc(P[1])+'</h2><p style="margin-top:6px"><b>Ask:</b> '+esc(P[2])+'</p></div></div><ul style="margin:0;padding-left:20px;font-size:18px;line-height:1.5">'+P[3].map(m=>"<li>"+esc(m)+"</li>").join("")+"</ul></div>";}
+const PGROUPS=[["Medicine",["m_routine","m_forget","m_well","m_side","m_out","m_herbs","m_other"]],["Readings and clinic visits",["n_bp","n_card","r_raised","c_between","c_review"]],["Diabetes",["d_signs","d_test","d_feet","d_low"]],["Food and drink",["k_salt","k_drinks","k_plate"]],["Activity and habits",["w_weight","a_move","t_tobacco","s_stress"]],["Family and emergencies",["f_helpers","f_family","e_plan"]]];
+const PORDER=PGROUPS.flatMap(g=>g[1]);
+const commitList=k=>'<div class="card"><h3>Small actions to choose from</h3><ul style="margin:0;padding-left:20px;font-size:17px;line-height:1.5">'+PAGES[k][4].map(c=>"<li>"+esc(c)+"</li>").join("")+"</ul></div>";
+function vPages(){if(UI.pg){const i=PORDER.indexOf(UI.pg);
+    return '<button class="link" data-pg="">‹ All pages</button>'+pageHtml(UI.pg)+commitList(UI.pg)+'<div class="row">'+(i>0?'<button data-pg="'+PORDER[i-1]+'">‹ Previous</button>':"")+(i<PORDER.length-1?'<button class="pri" data-pg="'+PORDER[i+1]+'">Next ›</button>':"")+"</div>";}
+  let o="<h1>Counselling pages</h1><p class='muted'>All "+PORDER.length+" pages used in the home visit, for counselling a group at the health facility, at church or elsewhere. Tap a page to show it on its own. Draft text and placeholder pictures.</p>"+'<div class="row"><button data-act="all">'+(UI.all?"Showing every page in full":"Show every page in full")+"</button></div>";
+  for(const [g,ks] of PGROUPS){o+='<h2 class="rep">'+esc(g)+"</h2>";
+    o+=UI.all?ks.map(k=>pageHtml(k)+commitList(k)).join(""):'<div class="card">'+ks.map(k=>'<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><div class="grow"><button class="link" data-pg="'+k+'"><b>'+esc(PAGES[k][1])+'</b></button><p class="small muted">'+esc(PAGES[k][2])+"</p></div></div>").join("")+"</div>";}
+  return o;}
 function dynHtml(st){const F=UI.F;let b="";
   if(st.a.s!=null)b+='<div class="big">'+st.a.s+"/"+st.a.di+' <span class="small muted" style="font-size:14px">average</span></div>';
   if(st.dec)b+='<div class="note '+(st.dec.urg===1?"bad":st.dec.urg?"warn":st.dec.code==="recheck"||st.dec.code==="recent"?"warn":"")+'">'+(st.dec.urg===1?"<b>Emergency.</b> ":"")+esc(st.dec.t.replace(/^Emergency\. /,""))+"</div>";
@@ -633,13 +642,13 @@ function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
 function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='n'>"+v+"</td></tr>";
   return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("Draft diabetes-risk score that counts as raised",CFG.riskFlag+" of 5"),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.3, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.4, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
   $("#who").textContent=ROLE[w.role]+(w.role==="admin"?"":": "+w.name)+" · example data";
   $("#nav").innerHTML=tabs.map(t=>'<button class="tab'+(t[0]===UI.tab&&!UI.mode?" on":"")+'" data-tab="'+t[0]+'">'+t[1]+"</button>").join("");
-  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings};
+  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings,pages:vPages};
   const M={hh:vHh,person:vPerson,visit:vVisit,clinic:vClinic,event:vEvent,qivc:vQivc};
   $("#app").innerHTML=(UI.mode?M[UI.mode]:V[UI.tab])();if(UI.keep){window.scrollTo(0,y);UI.keep=false;}else window.scrollTo(0,0);}
 function roleSel(){const g=(r,l)=>'<optgroup label="'+l+'">'+S.w.filter(w=>w.role===r).map(w=>'<option value="'+w.id+'">'+esc(r==="admin"?"Administrator":r==="clinic"?"Clinic":w.name+(w.cg?" (Care Group "+w.cg+")":""))+"</option>").join("")+"</optgroup>";
@@ -648,11 +657,12 @@ function setPath(o,path,v){const k=path.split(".");for(let i=0;i<k.length-1;i++)
 document.addEventListener("click",e=>{const el=e.target.closest("button,[data-pid]");if(!el)return;const d=el.dataset;
   if(d.f){UI.F[d.f]=UI.F[d.f]===d.v?null:d.v;UI.keep=true;return render();}
   if(d.m){const arr=d.m==="gatt"?UI.G.att:UI.F[d.m];if(d.v==="__none"){arr.length=0;arr.push("__none");}else{const i=arr.indexOf(d.v),n=arr.indexOf("__none");if(n>=0)arr.splice(n,1);const j=arr.indexOf(d.v);if(j>=0)arr.splice(j,1);else arr.push(d.v);}UI.keep=true;return render();}
-  if(d.tab){UI.tab=d.tab;UI.mode=null;UI.F=null;UI.all=false;UI.q="";return render();}
+  if(d.tab){UI.tab=d.tab;UI.mode=null;UI.F=null;UI.all=false;UI.q="";UI.pg=null;return render();}
+  if(d.pg!==undefined){UI.pg=d.pg||null;return render();}
   if(d.hh){UI.back=UI.mode?null:UI.tab;UI.hh=d.hh;UI.mode="hh";return render();}
   if(d.pid){UI.pid=d.pid;UI.from=UI.mode;UI.mode="person";return render();}
   const A=d.act;if(!A)return;
-  if(A==="all"){UI.all=true;UI.keep=true;return render();}
+  if(A==="all"){UI.all=UI.tab==="pages"&&!UI.mode?!UI.all:true;UI.keep=true;return render();}
   if(A==="back"){if(UI.mode==="person"&&UI.from==="hh"){UI.mode="hh";UI.from=null;}else UI.mode=null;return render();}
   if(A==="cancel"){const k=UI.F&&UI.F.kind;UI.mode=UI.mode==="qivc"?null:UI.mode==="visit"&&k!=="prom"?"hh":"person";UI.F=null;return render();}
   if(A==="visit"){UI.pid=d.id;UI.hh=IX.p[d.id].hh;startVisit(d.id,"home");return render();}
