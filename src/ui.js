@@ -339,4 +339,4 @@ document.addEventListener("change",e=>{const el=e.target;
   if(el.id==="role"){UI.who=el.value;UI.tab=null;UI.mode=null;UI.F=null;UI.G=null;UI.area="all";UI.all=false;UI.q="";render();}
   if(el.id==="area"){UI.area=el.value;UI.all=false;UI.keep=true;render();}});
 build();index();roleSel();render();
-if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+try{if("serviceWorker" in navigator&&location.hostname.endsWith("github.io"))navigator.serviceWorker.register("sw.js").catch(()=>{});}catch(e){}
