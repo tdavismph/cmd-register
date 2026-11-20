@@ -87,3 +87,5 @@ h2.rep{margin-top:10px;padding-top:10px;border-top:2px solid var(--line)}
   body{background:#fff;font-size:12px} main{padding-block:0} .card{border:0;padding:0;break-inside:avoid} h2.rep{break-after:avoid}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+.pgpic{display:block;width:100%;max-width:560px;aspect-ratio:800/597;object-fit:cover;border-radius:10px;margin:0 auto 12px;background:#f1ece2}
