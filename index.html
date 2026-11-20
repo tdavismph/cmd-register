@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1c6aa8">
-<title>CMD Register</title>
+<title>CBIO Cardiometabolic Disease Register</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -101,7 +101,7 @@ h2.rep{margin-top:10px;padding-top:10px;border-top:2px solid var(--line)}
 </style></head>
 <body>
 <div class="bar"><div class="wrap">
-  <div class="brand">CMD Register<small id="who"></small></div>
+  <div class="brand">CBIO Cardiometabolic Disease Register<small id="who"></small></div>
   <select id="role" aria-label="User"></select>
 </div><div class="wrap"><nav id="nav"></nav></div></div>
 <main class="wrap" id="app"></main>
@@ -137,7 +137,7 @@ const CFG={country:"Ghana",
   waist:{M:94,F:80},        // cm; raised waist (IDF values used for sub-Saharan Africa). Draft.
   // African Diabetes Risk Score (Mayige 2014; derived in Tanzania, Senegal and Guinea): age, waist and hypertension.
   // Coefficients and cut-off as published for the South African Diabetes Prevention Programme. The cut-off needs a local check.
-  adrs:{b0:-11.012,age:.045,waist:.048,htn:.649,cut:1.46},
+  adrs:{b0:-11.012,age:.045,waist:.048,htn:.649,cut:3.5},   // cut-off raised from the published 1.46 to keep each Leader Neighbor's cohort near 12 (project decision, 20 Nov 2026)
   targets:{screened:95,aware:70,linked:70,adherent:70,controlled:55,tested:95,dmLinked:70,active:50},
   // Modelled events averted. Relative risk per 10 mmHg lower systolic pressure: Ettehad et al., Lancet 2016;387:957-67.
   // Yearly rates without the fall in pressure are planning assumptions. Replace them with local figures.
@@ -309,7 +309,7 @@ function build(){
   for(let m=0;m<=CUR;m++){const ms=mStart(m);
     // sugar referrals raised at the screening day fall in their month
     for(const p of S.p){if(p._t.gd&&mIdx(p._t.gd)===m&&screenPos(p))refer(p,p._t.gd,"pr",  "glu",3);}
-    for(const ln of LN){const hs=IX.lnH[ln.id],cohort=hs.filter(hhMonthly).length;
+    for(const ln of LN){const hs=IX.lnH[ln.id],cohort=hs.flatMap(h=>IX.hhP[h.id]).filter(p=>live(p,ms)&&(isPatient(p)||atRisk(p))).length;
       const gd=addD(ms,2+R()*11);if(gd<=TODAY&&R()<ln.q+.05&&cohort)S.gm.push({id:uid("g"),ln:ln.id,m,d:gd,lesson:m,att:Math.max(2,Math.round(cohort*(.5+R()*.4))),cohort});
       for(const h of hs){const monthly=hhMonthly(h);let d=addD(ms,15+R()*14);
         if(monthly){if(R()>ln.q*(m===CUR?.62:1))continue;}else{if(diff(d,h.last)<CFG.recheck||R()>ln.q*.85*(m===CUR?.6:1))continue;}
@@ -356,7 +356,7 @@ function build(){
     {id:uid("v"),d:d1,hh:vh.id,p:"pAdwoa",by:"l20",kind:"screen",warn:[],pages:["k_salt"],s:126,di:78,act:"ok",commit:PAGES.k_salt[4][1]},
     {id:uid("v"),d:d2,hh:vh.id,p:"pYaw",by:"l20",kind:"home",warn:[],pages:["r_raised"],s:156,di:96,act:"confirm",commit:PAGES.r_raised[4][0]});
   S.ref.push({id:uid("r"),p:"pYaw",d:d2,by:"l20",code:"confirm",urg:3,seen:d3});
-  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.filter(hhMonthly).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
+  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.flatMap(h=>IX.hhP[h.id]).filter(p=>alive(p)&&(isPatient(p)||atRisk(p))).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }
 /* ---------- pictures for the counselling pages (simple drawings; to be replaced by tested illustrations) ---------- */
 const ICON={
@@ -668,8 +668,8 @@ function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
 function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='n'>"+v+"</td></tr>";
   return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("African Diabetes Risk Score that counts as raised","above "+CFG.adrs.cut),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
-  "<div class='card'><h3>Diabetes-risk flag</h3><div class='row'><label>African Diabetes Risk Score counted as raised when above "+num("a.cut",CFG.adrs.cut,"",90)+"</label></div><p class='small muted'>The score uses age, waist and hypertension (Mayige 2014; derived in Tanzania, Senegal and Guinea). An adult aged 35 or older with a raised score moves to monthly visits. The cut-off of 1.46 was published for South Africa and has not been checked in Ghana. A higher cut-off flags fewer people. Every adult aged 35 or older has the fingerstick test whatever the score.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.7, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  "<div class='card'><h3>Diabetes-risk flag</h3><div class='row'><label>African Diabetes Risk Score counted as raised when above "+num("a.cut",CFG.adrs.cut,"",90)+"</label></div><p class='small muted'>The score uses age, waist and hypertension (Mayige 2014; derived in Tanzania, Senegal and Guinea). An adult aged 35 or older with a raised score moves to monthly visits. The published cut-off for South Africa is 1.46. The project uses 3.5, so that each Leader Neighbor's monthly cohort stays near 12 people; neither value has been checked in Ghana. A higher cut-off flags fewer people. Every adult aged 35 or older has the fingerstick test whatever the score.</p></div>"+
+  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.8, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];

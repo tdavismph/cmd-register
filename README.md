@@ -1,4 +1,4 @@
-# CMD Register
+# CBIO Cardiometabolic Disease Register (CMD Register)
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 

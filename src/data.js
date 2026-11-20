@@ -29,7 +29,7 @@ const CFG={country:"Ghana",
   waist:{M:94,F:80},        // cm; raised waist (IDF values used for sub-Saharan Africa). Draft.
   // African Diabetes Risk Score (Mayige 2014; derived in Tanzania, Senegal and Guinea): age, waist and hypertension.
   // Coefficients and cut-off as published for the South African Diabetes Prevention Programme. The cut-off needs a local check.
-  adrs:{b0:-11.012,age:.045,waist:.048,htn:.649,cut:1.46},
+  adrs:{b0:-11.012,age:.045,waist:.048,htn:.649,cut:3.5},   // cut-off raised from the published 1.46 to keep each Leader Neighbor's cohort near 12 (project decision, 20 Nov 2026)
   targets:{screened:95,aware:70,linked:70,adherent:70,controlled:55,tested:95,dmLinked:70,active:50},
   // Modelled events averted. Relative risk per 10 mmHg lower systolic pressure: Ettehad et al., Lancet 2016;387:957-67.
   // Yearly rates without the fall in pressure are planning assumptions. Replace them with local figures.
@@ -201,7 +201,7 @@ function build(){
   for(let m=0;m<=CUR;m++){const ms=mStart(m);
     // sugar referrals raised at the screening day fall in their month
     for(const p of S.p){if(p._t.gd&&mIdx(p._t.gd)===m&&screenPos(p))refer(p,p._t.gd,"pr",  "glu",3);}
-    for(const ln of LN){const hs=IX.lnH[ln.id],cohort=hs.filter(hhMonthly).length;
+    for(const ln of LN){const hs=IX.lnH[ln.id],cohort=hs.flatMap(h=>IX.hhP[h.id]).filter(p=>live(p,ms)&&(isPatient(p)||atRisk(p))).length;
       const gd=addD(ms,2+R()*11);if(gd<=TODAY&&R()<ln.q+.05&&cohort)S.gm.push({id:uid("g"),ln:ln.id,m,d:gd,lesson:m,att:Math.max(2,Math.round(cohort*(.5+R()*.4))),cohort});
       for(const h of hs){const monthly=hhMonthly(h);let d=addD(ms,15+R()*14);
         if(monthly){if(R()>ln.q*(m===CUR?.62:1))continue;}else{if(diff(d,h.last)<CFG.recheck||R()>ln.q*.85*(m===CUR?.6:1))continue;}
@@ -248,5 +248,5 @@ function build(){
     {id:uid("v"),d:d1,hh:vh.id,p:"pAdwoa",by:"l20",kind:"screen",warn:[],pages:["k_salt"],s:126,di:78,act:"ok",commit:PAGES.k_salt[4][1]},
     {id:uid("v"),d:d2,hh:vh.id,p:"pYaw",by:"l20",kind:"home",warn:[],pages:["r_raised"],s:156,di:96,act:"confirm",commit:PAGES.r_raised[4][0]});
   S.ref.push({id:uid("r"),p:"pYaw",d:d2,by:"l20",code:"confirm",urg:3,seen:d3});
-  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.filter(hhMonthly).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
+  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.flatMap(h=>IX.hhP[h.id]).filter(p=>alive(p)&&(isPatient(p)||atRisk(p))).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }

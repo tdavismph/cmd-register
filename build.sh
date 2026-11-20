@@ -9,7 +9,7 @@ cat <<'H'
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1c6aa8">
-<title>CMD Register</title>
+<title>CBIO Cardiometabolic Disease Register</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -20,7 +20,7 @@ cat <<'H'
 </style></head>
 <body>
 <div class="bar"><div class="wrap">
-  <div class="brand">CMD Register<small id="who"></small></div>
+  <div class="brand">CBIO Cardiometabolic Disease Register<small id="who"></small></div>
   <select id="role" aria-label="User"></select>
 </div><div class="wrap"><nav id="nav"></nav></div></div>
 <main class="wrap" id="app"></main>
