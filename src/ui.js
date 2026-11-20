@@ -119,7 +119,7 @@ function avgBP(F){const v=F.r.map(x=>[+x[0],+x[1]]),ok=i=>v[i][0]>=60&&v[i][0]<=
   if(!far)return{s:Math.round((v[0][0]+v[1][0])/2),di:Math.round((v[0][1]+v[1][1])/2),need3:false};
   if(!ok(2))return{need3:true};return{s:Math.round((v[1][0]+v[2][0])/2),di:Math.round((v[1][1]+v[2][1])/2),need3:true};}
 function visitState(){const F=UI.F,p=IX.p[F.pid],a=F.nobp?{}:avgBP(F),warn=F.warn.filter(x=>x!=="__none"),dxH=F.dxH==="y",dx=dxH||F.dxD==="y";
-  const dec=(a.s!=null||warn.length||(dxH&&F.med==="n"))?decide({htn:{dx:dxH},bp:p.bp},a.s??null,a.di??null,warn,F.preg==="y",dxH&&F.med==="n"):null;
+  const dec=(a.s!=null||warn.length||(dxH&&F.med==="n"))?decide({id:p.id,htn:{dx:dxH},bp:p.bp,glu:p.glu},a.s??null,a.di??null,warn,F.preg==="y",dxH&&F.med==="n"):null;
   const find=[];
   if(F.kind!=="prom"){
     if(dx&&F.med==="n"&&F.why)find.push(WHY[F.why][1]);
@@ -135,7 +135,7 @@ function visitState(){const F=UI.F,p=IX.p[F.pid],a=F.nobp?{}:avgBP(F),warn=F.war
 function pageHtml(k){const P=PAGES[k];return '<div class="card" style="border-width:2px"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><div style="color:var(--accent);flex:none">'+ic(P[0])+'</div><div class="grow"><h3>Counselling page</h3><h2>'+esc(P[1])+'</h2><p style="margin-top:6px"><b>Ask:</b> '+esc(P[2])+'</p></div></div><ul style="margin:0;padding-left:20px;font-size:18px;line-height:1.5">'+P[3].map(m=>"<li>"+esc(m)+"</li>").join("")+"</ul></div>";}
 function dynHtml(st){const F=UI.F;let b="";
   if(st.a.s!=null)b+='<div class="big">'+st.a.s+"/"+st.a.di+' <span class="small muted" style="font-size:14px">average</span></div>';
-  if(st.dec)b+='<div class="note '+(st.dec.urg===1?"bad":st.dec.urg?"warn":st.dec.code==="recheck"?"warn":"")+'">'+(st.dec.urg===1?"<b>Emergency.</b> ":"")+esc(st.dec.t.replace(/^Emergency\. /,""))+"</div>";
+  if(st.dec)b+='<div class="note '+(st.dec.urg===1?"bad":st.dec.urg?"warn":st.dec.code==="recheck"||st.dec.code==="recent"?"warn":"")+'">'+(st.dec.urg===1?"<b>Emergency.</b> ":"")+esc(st.dec.t.replace(/^Emergency\. /,""))+"</div>";
   return b;}
 function commitHtml(st){const F=UI.F,opts=[...new Set(st.pages.flatMap(k=>PAGES[k][4]))];return multi("commit",opts,F.commit,true);}
 function vVisit(){const F=UI.F,st=visitState(),p=st.p,prom=F.kind==="prom",miss=k=>F.tried&&k;
@@ -178,9 +178,9 @@ function saveVisit(){const F=UI.F,st=visitState(),p=st.p,h=IX.hh[p.hh],prom=F.ki
   S.v.push(v);let note=[p.name+": visit saved."+(dec?" "+dec.t:""),dec&&dec.urg===1?"bad":dec&&dec.refer?"warn":""];
   const mk=(code,urg)=>{if(!openRef(p).length)S.ref.push({id:uid("r"),p:p.id,d:TODAY,by:UI.who,code,urg});};
   if(dec&&dec.refer){mk(dec.code,dec.urg);note[0]+=" A referral is on the clinic's list.";}
-  else if(!prom&&F.dxD==="y"&&F.med==="n"){mk("relink",3);note=[p.name+": visit saved. Refer back to the facility: diabetes medicine is not being taken.","warn"];}
+  else if(!prom&&F.dxD==="y"&&F.med==="n"&&!seenRecently(p)){mk("relink",3);note=[p.name+": visit saved. Refer back to the facility: diabetes medicine is not being taken.","warn"];}
   if(F.feet==="sore"){mk("feet",2);note=[note[0]+" Foot sore: to be seen by a health worker today.","warn"];}
-  if(F.why==="side"&&!(dec&&dec.refer))mk("side",3);
+  if(F.why==="side"&&!(dec&&dec.refer)&&!seenRecently(p))mk("side",3);
   UI.F=null;UI.mode=prom?"person":"hh";UI.hh=h.id;UI.note=note;render();}
 
 /* ---------- clinic entry ---------- */
@@ -292,9 +292,9 @@ function vReports(){const ids=scope(),c=calc(ids),T=CFG.targets,r1=x=>x==null?""
 function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
   return "<h1>Workers</h1><div class='card'>"+tbl(["Role","Name","Covers"],[...g("prom").map(w=>"<tr><td>Promoter (CHO)</td><td>"+esc(w.name)+"</td><td>"+g("lnt").filter(t=>t.prom===w.id).length+" Trainers</td></tr>"),...g("clinic").map(w=>"<tr><td>Clinic</td><td>"+esc(w.name)+"</td><td>All referrals</td></tr>"),...g("lnt").map(w=>"<tr><td>Leader Neighbor Trainer</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+lnsOf(w).length+" Leader Neighbors</td></tr>"),...g("ln").map(w=>"<tr><td>Leader Neighbor</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+(IX.lnH[w.id]||[]).length+" households, "+(IX.lnH[w.id]||[]).filter(hhMonthly).length+" on monthly visits</td></tr>")])+"</div>";}
 function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='n'>"+v+"</td></tr>";
-  return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("Draft diabetes-risk score that counts as raised",CFG.riskFlag+" of 5"),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. All need review by clinical staff in Ghana before field use.</p></div>"+
+  return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("Draft diabetes-risk score that counts as raised",CFG.riskFlag+" of 5"),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.1, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.2, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];

@@ -20,6 +20,7 @@ const MLEN=30.4375;
 const CFG={country:"Ghana",
   // The example programme is in its 8th month of home visits, in the second half of the month.
   start:addD(TODAY,-236),
+  noRefer:30,               // days: no new routine referral for a person seen at the facility this recently
   recheck:120,              // days: adults 35+ with a normal reading, and households with no patient (3 visits a year)
   // Blood pressure rules: section 4.4 of the demonstration narrative (version 7).
   bp:{hi:[140,90],prompt:[180,110],pregEmerg:[160,110]},
@@ -116,6 +117,8 @@ function htnLabel(p){if(p.htn.dx)return p.htn.rx?["On BP treatment","info"]:["BP
   if(elev(lastBP(p)))return elevDays(p)>=2?["BP raised twice: refer","bad"]:["BP raised once: re-check","warn"];return["BP normal","good"];}
 function dmLabel(p){if(p.dm.dx)return p.dm.rx?["On diabetes treatment","info"]:["Diabetes diagnosed, not on treatment","bad"];
   if(screenPos(p))return["Sugar screen raised: needs clinic test","bad"];if(fingers(p).length||labs(p).length)return["Sugar normal","good"];return p.age>=35?["Sugar not tested","warn"]:null;}
+/* Date the person was last seen at the facility, if within CFG.noRefer days before `on`. */
+function seenRecently(p,on){on=on||TODAY;const ds=S.ref.filter(r=>r.p===p.id&&r.seen).map(r=>r.seen).concat((p.bp||[]).filter(r=>r.src==="clinic").map(r=>r.d),(p.glu||[]).filter(g=>g.by==="cl").map(g=>g.d)).filter(d=>d<=on&&diff(on,d)<=CFG.noRefer).sort();return ds.pop()||null;}
 const openRef=p=>S.ref.filter(r=>r.p===p.id&&!r.seen);
 /* What to do with a reading (narrative 4.4). warn = list of warning signs present. */
 function decide(p,s,d,warn,preg,medNo,on){on=on||TODAY;
@@ -124,6 +127,8 @@ function decide(p,s,d,warn,preg,medNo,on){on=on||TODAY;
   if(preg&&(s>=160||d>=110))return{urg:1,code:"emerg",t:"Emergency. Pregnant with 160 over 110 or more. She goes to the health facility today.",refer:1};
   if(preg&&hi)return{urg:2,code:"preg",t:"Refer now. In pregnancy, one raised reading is enough.",refer:1};
   if(s>=180||d>=110)return{urg:2,code:"prompt",t:"Refer promptly. 180 over 110 or more with no warning sign: to be seen at the facility within days. Tell the Promoter today.",refer:1};
+  const seen=seenRecently(p,on);
+  if(seen&&((p.htn.dx&&(hi||medNo))||(!p.htn.dx&&hi&&p.bp.some(r=>elev(r)&&r.d!==on))))return{urg:0,code:"recent",t:(hi?"The reading is raised":"The medicine is not being taken")+", but the person was seen at the facility on "+fmtD(seen)+". No new referral within "+CFG.noRefer+" days. Counsel today and check again at the next visit."};
   if(p.htn.dx&&(hi||medNo))return{urg:3,code:"relink",t:"Refer back to the facility. "+(hi?"The reading is raised":"The medicine is not being taken")+" in a person already diagnosed. No second reading is needed.",refer:1};
   if(s==null)return null;
   if(!p.htn.dx&&hi){const before=p.bp.some(r=>elev(r)&&r.d!==on);
@@ -211,7 +216,7 @@ function build(){
         v.medHome=!medNo||R()<.4;v.nhis=h.nhis||R()<.3;if(v.nhis)h.nhis=true;}
       if(due){const r=pushBP(p,d,ln.id,"visit");v.s=r.s;v.di=r.di;
         if(p._t.H&&R()<.004)v.warn=[WARN[Math.floor(R()*3)]];const dec=decide(p,r.s,r.di,v.warn,p.preg,medNo&&p.htn.dx,d);if(dec){v.act=dec.code;if(dec.refer)refer(p,d,ln.id,dec.code,dec.urg);else if(dec.code==="recheck")v.pages.push("r_raised");}}
-      else if(medNo&&p.dm.dx&&!p.dm.rx)refer(p,d,ln.id,"relink",3);
+      else if(medNo&&p.dm.dx&&!p.dm.rx&&!seenRecently(p,d))refer(p,d,ln.id,"relink",3);
       if(!v.pages.length)v.pages.push(monthly?LESSONS[m][3]:(PREV_TOPICS.find(t=>!h.topics.includes(t))||PREV_TOPICS[0]));
       if(!monthly&&!h.topics.includes(v.pages[0]))h.topics.push(v.pages[0]);
       v.commit=PAGES[v.pages[0]][4][0];if(p._t.n>1)v.kept=R()<.6;
