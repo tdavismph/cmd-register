@@ -230,4 +230,23 @@ function build(){
   for(const ln of LN){for(let m=1;m<=CUR;m+=2+Math.floor(R()*2)){const d=addD(mStart(m),16+R()*12);if(d>TODAY)break;
     const ok=QIVC.map(()=>R()<ln.q+.1+m*.012);S.q.push({id:uid("q"),ln:ln.id,by:ln.lnt,d,ok,score:pct(ok.filter(Boolean).length,ok.length)});}}
   for(const p of S.p)p.bp=p.bp.filter(r=>r.s!=null).sort((a,b)=>a.d<b.d?-1:1);
+  // The household followed in the training video: Yaw Darko, whose treatment started three weeks ago, and his wife Adwoa.
+  // Leader Neighbor Akosua Asante (Care Group 3) and Promoter Hawa Alhassan.
+  IX.w.pr1.name="Hawa Alhassan";const ak=IX.w.l20;ak.name="Akosua Asante";
+  const vh=IX.lnH.l20.find(h=>hhMonthly(h)&&mIdx(h.last)!==CUR)||IX.lnH.l20[0],old=new Set(IX.hhP[vh.id].map(p=>p.id));
+  S.p=S.p.filter(p=>!old.has(p.id));S.v=S.v.filter(v=>!old.has(v.p));S.ref=S.ref.filter(r=>!old.has(r.p));S.ev=S.ev.filter(e=>!old.has(e.p));
+  const d1=addD(TODAY,-176),d2=addD(TODAY,-52),d3=addD(TODAY,-21),cen=vh.census;
+  const yaw={id:"pYaw",hh:vh.id,name:"Yaw Darko",sex:"M",age:54,waist:92,fam:false,inactive:false,tob:false,meds:[MEDS[0]],review:addD(d3,30),
+    htn:{dx:true,src:"clinic",dxDate:d3,rx:true,rxStart:d3},dm:{},glu:[{d:addD(CFG.start,45),t:"finger",fast:false,v:5.4,by:"pr1"}],
+    bp:[{d:cen,s:136,di:86,by:"l20",src:"census"},{d:d1,s:152,di:94,by:"l20",src:"visit"},{d:d2,s:156,di:96,by:"l20",src:"visit"},{d:d3,s:160,di:98,by:"cl",src:"clinic"}],
+    hab:[{d:cen,salt:true,drinks:1,act:5,tob:false}],_t:{H:true,D:false,s:158,d:96,eff:18,ad:.5,g:5.4,n:2}};
+  const adw={id:"pAdwoa",hh:vh.id,name:"Adwoa Darko",sex:"F",age:49,waist:84,fam:false,inactive:false,tob:false,meds:[],htn:{},dm:{},
+    glu:[{d:addD(CFG.start,45),t:"finger",fast:false,v:5.1,by:"pr1"}],bp:[{d:cen,s:124,di:80,by:"l20",src:"census"},{d:d1,s:126,di:78,by:"l20",src:"visit"}],
+    hab:[{d:cen,salt:true,drinks:1,act:4,tob:false}],_t:{H:false,D:false,s:124,d:79,eff:0,ad:.5,g:5.1,n:1}};
+  S.p.push(yaw,adw);vh.head="Yaw Darko";vh.nhis=true;vh.last=d2;vh.topics=["k_salt"];
+  S.v.push({id:uid("v"),d:d1,hh:vh.id,p:"pYaw",by:"l20",kind:"screen",warn:[],pages:["r_raised"],s:152,di:94,act:"recheck",commit:PAGES.r_raised[4][0]},
+    {id:uid("v"),d:d1,hh:vh.id,p:"pAdwoa",by:"l20",kind:"screen",warn:[],pages:["k_salt"],s:126,di:78,act:"ok",commit:PAGES.k_salt[4][1]},
+    {id:uid("v"),d:d2,hh:vh.id,p:"pYaw",by:"l20",kind:"home",warn:[],pages:["r_raised"],s:156,di:96,act:"confirm",commit:PAGES.r_raised[4][0]});
+  S.ref.push({id:uid("r"),p:"pYaw",d:d2,by:"l20",code:"confirm",urg:3,seen:d3});
+  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.filter(hhMonthly).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }

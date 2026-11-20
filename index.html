@@ -338,6 +338,25 @@ function build(){
   for(const ln of LN){for(let m=1;m<=CUR;m+=2+Math.floor(R()*2)){const d=addD(mStart(m),16+R()*12);if(d>TODAY)break;
     const ok=QIVC.map(()=>R()<ln.q+.1+m*.012);S.q.push({id:uid("q"),ln:ln.id,by:ln.lnt,d,ok,score:pct(ok.filter(Boolean).length,ok.length)});}}
   for(const p of S.p)p.bp=p.bp.filter(r=>r.s!=null).sort((a,b)=>a.d<b.d?-1:1);
+  // The household followed in the training video: Yaw Darko, whose treatment started three weeks ago, and his wife Adwoa.
+  // Leader Neighbor Akosua Asante (Care Group 3) and Promoter Hawa Alhassan.
+  IX.w.pr1.name="Hawa Alhassan";const ak=IX.w.l20;ak.name="Akosua Asante";
+  const vh=IX.lnH.l20.find(h=>hhMonthly(h)&&mIdx(h.last)!==CUR)||IX.lnH.l20[0],old=new Set(IX.hhP[vh.id].map(p=>p.id));
+  S.p=S.p.filter(p=>!old.has(p.id));S.v=S.v.filter(v=>!old.has(v.p));S.ref=S.ref.filter(r=>!old.has(r.p));S.ev=S.ev.filter(e=>!old.has(e.p));
+  const d1=addD(TODAY,-176),d2=addD(TODAY,-52),d3=addD(TODAY,-21),cen=vh.census;
+  const yaw={id:"pYaw",hh:vh.id,name:"Yaw Darko",sex:"M",age:54,waist:92,fam:false,inactive:false,tob:false,meds:[MEDS[0]],review:addD(d3,30),
+    htn:{dx:true,src:"clinic",dxDate:d3,rx:true,rxStart:d3},dm:{},glu:[{d:addD(CFG.start,45),t:"finger",fast:false,v:5.4,by:"pr1"}],
+    bp:[{d:cen,s:136,di:86,by:"l20",src:"census"},{d:d1,s:152,di:94,by:"l20",src:"visit"},{d:d2,s:156,di:96,by:"l20",src:"visit"},{d:d3,s:160,di:98,by:"cl",src:"clinic"}],
+    hab:[{d:cen,salt:true,drinks:1,act:5,tob:false}],_t:{H:true,D:false,s:158,d:96,eff:18,ad:.5,g:5.4,n:2}};
+  const adw={id:"pAdwoa",hh:vh.id,name:"Adwoa Darko",sex:"F",age:49,waist:84,fam:false,inactive:false,tob:false,meds:[],htn:{},dm:{},
+    glu:[{d:addD(CFG.start,45),t:"finger",fast:false,v:5.1,by:"pr1"}],bp:[{d:cen,s:124,di:80,by:"l20",src:"census"},{d:d1,s:126,di:78,by:"l20",src:"visit"}],
+    hab:[{d:cen,salt:true,drinks:1,act:4,tob:false}],_t:{H:false,D:false,s:124,d:79,eff:0,ad:.5,g:5.1,n:1}};
+  S.p.push(yaw,adw);vh.head="Yaw Darko";vh.nhis=true;vh.last=d2;vh.topics=["k_salt"];
+  S.v.push({id:uid("v"),d:d1,hh:vh.id,p:"pYaw",by:"l20",kind:"screen",warn:[],pages:["r_raised"],s:152,di:94,act:"recheck",commit:PAGES.r_raised[4][0]},
+    {id:uid("v"),d:d1,hh:vh.id,p:"pAdwoa",by:"l20",kind:"screen",warn:[],pages:["k_salt"],s:126,di:78,act:"ok",commit:PAGES.k_salt[4][1]},
+    {id:uid("v"),d:d2,hh:vh.id,p:"pYaw",by:"l20",kind:"home",warn:[],pages:["r_raised"],s:156,di:96,act:"confirm",commit:PAGES.r_raised[4][0]});
+  S.ref.push({id:uid("r"),p:"pYaw",d:d2,by:"l20",code:"confirm",urg:3,seen:d3});
+  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.filter(hhMonthly).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }
 /* ---------- pictures for the counselling pages (simple drawings; to be replaced by tested illustrations) ---------- */
 const ICON={
@@ -394,16 +413,18 @@ function tasks(lnId){const out=[];
     const refs=ps.flatMap(openRef),urgent=refs.filter(r=>r.urg<3||diff(TODAY,r.d)>14);
     if(urgent.length)out.push({p:1,h,t:"Follow up a referral",why:urgent.map(r=>IX.p[r.p].name+": "+REASON[r.code]+", referred "+fmtD(r.d)).join("; ")});
     const monthly=hhMonthly(h);
-    if(monthly&&mIdx(h.last)!==CUR){const why=[];let pr=2;
+    if(monthly&&mIdx(h.last)!==CUR){const why=[];let pr=2,first=0;
       for(const p of ps){const l=lastBP(p),lv=S.v.filter(v=>v.p===p.id).pop();
-        if((p.htn.dx&&!p.htn.rx)||(p.dm.dx&&!p.dm.rx)){why.push(p.name+": diagnosed, not on treatment");pr=1;}
+        const st=[p.htn,p.dm].filter(c=>c.rx&&c.rxStart&&diff(TODAY,c.rxStart)<=60&&!(lv&&lv.d>=c.rxStart)).map(c=>c.rxStart).sort()[0];
+        if(st){why.push(p.name+": first visit since treatment started on "+fmtD(st));pr=1;first=1;}
+        else if((p.htn.dx&&!p.htn.rx)||(p.dm.dx&&!p.dm.rx)){why.push(p.name+": diagnosed, not on treatment");pr=1;}
         else if(isPatient(p)&&lv&&lv.med==="n"){why.push(p.name+" said at the last visit that the medicine was not taken every day");pr=1;}
         else if(raisedOnce(p)){why.push(p.name+": re-check a raised reading");pr=1;}
         else if(l&&(l.s>=160||l.di>=100)){why.push(p.name+": last reading "+bpTxt(l));pr=1;}
         else if(isPatient(p))why.push(p.name+": monthly visit");}
-      out.push({p:pr,h,t:"Monthly home visit",why:why.join("; ")||"Household with a person at risk"});}
+      out.push({p:pr,h,first,t:"Monthly home visit",why:why.join("; ")||"Household with a person at risk"});}
     else if(!monthly&&diff(TODAY,h.last)>=CFG.recheck)out.push({p:3,h,t:"Screening visit",why:"Last visit "+fmtD(h.last)+". Check every adult aged 35 or older."});}
-  return out.sort((a,b)=>a.p-b.p||(a.h.last<b.h.last?-1:1));}
+  return out.sort((a,b)=>a.p-b.p||(b.first||0)-(a.first||0)||(a.h.last<b.h.last?-1:1));}
 const half=()=>diff(TODAY,mStart(CUR))<15?"first half of the month: group lesson":"second half of the month: home visits";
 
 /* ---------- views ---------- */
@@ -445,7 +466,7 @@ function vPerson(){const p=IX.p[UI.pid],h=IX.hh[p.hh],r=me().role,vs=S.v.filter(
   o+='<div class="card"><h3>Blood pressure</h3>'+(p.bp.length?spark(p)+tbl(["Date","Reading","By"],p.bp.slice().reverse().slice(0,8).map(x=>"<tr><td>"+fmtD(x.d)+"</td><td>"+(elev(x)?"<b>"+bpTxt(x)+"</b>":bpTxt(x))+"</td><td>"+esc(SRC[x.src]||"")+"</td></tr>")):"<p class='muted'>No reading yet.</p>")+"</div>";
   if(p.glu.length)o+='<div class="card"><h3>Blood sugar</h3>'+tbl(["Date","Test","Result","By"],p.glu.slice().reverse().map(g=>"<tr><td>"+fmtD(g.d)+"</td><td>"+(g.t==="a1c"?"HbA1c (clinic)":g.t==="fast"?"Fasting venous (clinic)":"Fingerstick"+(g.fast?", fasting":""))+"</td><td>"+(gluPos(g)?"<b>":"")+g.v+(g.t==="a1c"?"%":" mmol/L")+(gluPos(g)?"</b>":"")+"</td><td>"+(g.by==="cl"?"Clinic":"Promoter")+"</td></tr>"))+"</div>";
   if(refs.length)o+='<div class="card"><h3>Referrals</h3>'+tbl(["Date","Reason","Seen at the facility"],refs.map(x=>"<tr><td>"+fmtD(x.d)+"</td><td>"+esc(REASON[x.code])+"</td><td>"+(x.seen?fmtD(x.seen):'<span class="chip warn">not yet</span>')+"</td></tr>"))+"</div>";
-  if(vs.length)o+='<div class="card"><h3>Visits</h3>'+tbl(["Date","Reading","Medicine every day","Page shown","Commitment"],vs.slice(0,8).map(v=>"<tr><td>"+fmtD(v.d)+"</td><td>"+(v.s?v.s+"/"+v.di:"")+"</td><td>"+(v.med==="y"?"Yes":v.med==="n"?"No: "+esc(WHY[v.why]?WHY[v.why][0]:""):"")+"</td><td>"+v.pages.map(k=>esc(PAGES[k][1])).join("; ")+"</td><td>"+esc(v.commit||"")+"</td></tr>"))+"</div>";
+  if(vs.length)o+='<div class="card"><h3>Visits</h3>'+tbl(["Date","Reading","Medicine every day","Page shown","Commitment"],vs.slice(0,8).map(v=>"<tr><td>"+fmtD(v.d)+"</td><td>"+(v.s?v.s+"/"+v.di:"")+"</td><td>"+(v.med==="y"?"Yes":v.med==="n"?"No: "+esc(whyList(v).map(k=>WHY[k][0]).join("; ")):"")+"</td><td>"+v.pages.map(k=>esc(PAGES[k][1])).join("; ")+"</td><td>"+esc(v.commit||"")+"</td></tr>"))+"</div>";
   const evs=S.ev.filter(e=>e.p===p.id);if(evs.length)o+='<div class="card"><h3>Events</h3>'+evs.map(e=>"<p>"+fmtD(e.d)+": "+esc(e.type)+"</p>").join("")+"</div>";
   return o;}
 const SRC={census:"Census",visit:"Leader Neighbor",clinic:"Clinic",prom:"Promoter"};
@@ -454,8 +475,10 @@ function spark(p){const a=p.bp.slice(-10);if(a.length<2)return"";const W=300,H=7
 
 /* ---------- the home visit: checks and counselling in one flow ---------- */
 function startVisit(pid,kind){const p=IX.p[pid],lv=S.v.filter(v=>v.p===pid).pop();
-  UI.F={pid,kind,warn:[],askPreg:p.sex==="F"&&p.age<50,preg:null,dxH:p.htn.dx?"y":null,dxD:p.dm.dx?"y":null,r:[["",""],["",""],["",""]],nobp:false,med:null,why:null,medHome:null,review:null,nhis:null,kept:null,low:null,feet:null,
+  UI.F={pid,kind,warn:[],askPreg:p.sex==="F"&&p.age<50,preg:null,dxH:p.htn.dx?"y":null,dxD:p.dm.dx?"y":null,r:[["",""],["",""],["",""]],nobp:false,med:null,why:[],medHome:null,review:null,nhis:null,kept:null,low:null,feet:null,
     salt:null,drinks:null,act:"",tob:null,fam:null,prev:null,waist:"",wt:"",commit:[],who:"",last:lv&&lv.commit,tried:false,nV:S.v.filter(v=>v.p===pid&&v.kind!=="census").length};UI.mode="visit";}
+const whyKeys=F=>Object.keys(WHY).filter(k=>F.why.includes(WHY[k][0]));
+const whyList=v=>v.why?[].concat(v.why):[];
 function avgBP(F){const v=F.r.map(x=>[+x[0],+x[1]]),ok=i=>v[i][0]>=60&&v[i][0]<=300&&v[i][1]>=30&&v[i][1]<=200;
   if(!ok(0)||!ok(1))return{need3:false};const far=Math.abs(v[0][0]-v[1][0])>10||Math.abs(v[0][1]-v[1][1])>10;
   if(!far)return{s:Math.round((v[0][0]+v[1][0])/2),di:Math.round((v[0][1]+v[1][1])/2),need3:false};
@@ -464,7 +487,7 @@ function visitState(){const F=UI.F,p=IX.p[F.pid],a=F.nobp?{}:avgBP(F),warn=F.war
   const dec=(a.s!=null||warn.length||(dxH&&F.med==="n"))?decide({id:p.id,htn:{dx:dxH},bp:p.bp,glu:p.glu},a.s??null,a.di??null,warn,F.preg==="y",dxH&&F.med==="n"):null;
   const find=[];
   if(F.kind!=="prom"){
-    if(dx&&F.med==="n"&&F.why)find.push(WHY[F.why][1]);
+    if(dx&&F.med==="n")for(const k of whyKeys(F))find.push(WHY[k][1]);
     if(F.review==="missed")find.push("c_review");
     if(dec&&dec.code==="recheck")find.push("r_raised");
     if(F.low==="y")find.push("d_low");
@@ -472,7 +495,7 @@ function visitState(){const F=UI.F,p=IX.p[F.pid],a=F.nobp?{}:avgBP(F),warn=F.war
     if(p.age>=35&&F.dxD!=="y"&&!p.glu.length)find.push("d_test");
     if(dx&&F.nV%3===1&&!find.length)find.push("c_between");}
   const h=IX.hh[p.hh],monthly=dx||hhMonthly(h);
-  const pages=F.kind==="prom"?[]:find.length?find.slice(0,2):[monthly?LESSONS[CUR][3]:(PREV_TOPICS.find(t=>!h.topics.includes(t))||PREV_TOPICS[CUR%5])];
+  const pages=F.kind==="prom"?[]:find.length?find.slice(0,3):[monthly?LESSONS[CUR][3]:(PREV_TOPICS.find(t=>!h.topics.includes(t))||PREV_TOPICS[CUR%5])];
   return{p,a,warn,dx,dxH,dec,pages,monthly};}
 function pageHtml(k){const P=PAGES[k];return '<div class="card" style="border-width:2px"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><div style="color:var(--accent);flex:none">'+ic(P[0])+'</div><div class="grow"><h3>Counselling page</h3><h2>'+esc(P[1])+'</h2><p style="margin-top:6px"><b>Ask:</b> '+esc(P[2])+'</p></div></div><ul style="margin:0;padding-left:20px;font-size:18px;line-height:1.5">'+P[3].map(m=>"<li>"+esc(m)+"</li>").join("")+"</ul></div>";}
 const PGROUPS=[["Medicine",["m_routine","m_forget","m_well","m_side","m_out","m_herbs","m_other"]],["Readings and clinic visits",["n_bp","n_card","r_raised","c_between","c_review"]],["Diabetes",["d_signs","d_test","d_feet","d_low"]],["Food and drink",["k_salt","k_drinks","k_plate"]],["Activity and habits",["w_weight","a_move","t_tobacco","s_stress"]],["Family and emergencies",["f_helpers","f_family","e_plan"]]];
@@ -500,7 +523,7 @@ function vVisit(){const F=UI.F,st=visitState(),p=st.p,prom=F.kind==="prom",miss=
   if(!prom){
     if(st.dx){const rev=p.review&&p.review<TODAY;
       o+='<div class="card"><h3>Step 3. Medicine and the last commitment</h3>'+(p.meds.length?'<div class="note"><b>Medicines on the clinic\'s record:</b><ul style="margin:4px 0 0;padding-left:20px">'+p.meds.map(m=>"<li>"+esc(m)+"</li>").join("")+"</ul>"+(p.review?"Next review: "+fmtD(p.review)+".":"")+"</div>":'<div class="note warn">No medicine is on the clinic\'s record for this person.</div>')+q("Are you taking your medicine every day?",seg("med",YN,F.med),miss(!F.med),p.meds.length>1?"Ask about each medicine listed above.":"")+
-        (F.med==="n"?q("What is the main reason?",seg("why",Object.entries(WHY).map(([k,v])=>[k,v[0]]),F.why),miss(!F.why)):"")+
+        (F.med==="n"?q("What are the reasons? Tap every one that applies.",multi("why",Object.values(WHY).map(v=>v[0]),F.why,true),miss(!F.why.length)):"")+
         q("Is there medicine in the house today?",seg("medHome",YN,F.medHome))+q("Is the NHIS card active?",seg("nhis",[["y","Yes"],["n","No"],["u","Not sure"]],F.nhis))+
         (rev?q("The review date ("+fmtD(p.review)+") has passed. Did you go?",seg("review",[["kept","Yes"],["missed","No"]],F.review)):"")+
         (F.dxD==="y"?q("Since my last visit, have you been shaky, sweaty or confused before a meal?",seg("low",YN,F.low))+(F.nV%3===0?q("Feet: any sore, blister or dark spot?",seg("feet",[["ok","None seen"],["sore","Yes"]],F.feet),0,"Look at both feet together, with a family member."):""):"")+
@@ -515,11 +538,11 @@ function vVisit(){const F=UI.F,st=visitState(),p=st.p,prom=F.kind==="prom",miss=
   o+='<div class="card"><h3>'+(prom?"Record":"Step 6. Record, refer and plan")+"</h3>"+(F.tried?'<div class="note bad">Please complete the items marked with *.</div>':"")+'<div class="row"><button class="pri tap" data-act="save">Save the visit</button></div></div>';
   return o;}
 function saveVisit(){const F=UI.F,st=visitState(),p=st.p,h=IX.hh[p.hh],prom=F.kind==="prom";
-  if(!F.warn.length||!F.dxH||!F.dxD||(F.askPreg&&!F.preg)||(!F.nobp&&st.a.s==null)||(!prom&&st.dx&&(!F.med||(F.med==="n"&&!F.why)))){F.tried=true;return render();}
+  if(!F.warn.length||!F.dxH||!F.dxD||(F.askPreg&&!F.preg)||(!F.nobp&&st.a.s==null)||(!prom&&st.dx&&(!F.med||(F.med==="n"&&!F.why.length)))){F.tried=true;return render();}
   if(F.dxH==="y"&&!p.htn.dx)p.htn={dx:true,src:"self",dxDate:TODAY};if(F.dxD==="y"&&!p.dm.dx)p.dm={dx:true,src:"self",dxDate:TODAY};
   if(F.askPreg)p.preg=F.preg==="y";
   // decide before today's reading is stored, so "raised on a second day" counts earlier days only
-  const dec=st.dec;const v={id:uid("v"),d:TODAY,hh:h.id,p:p.id,by:UI.who,kind:prom?"prom":st.monthly?"home":"screen",warn:st.warn,pages:st.pages,med:F.med,why:F.med==="n"?F.why:null,medHome:F.medHome==="y",nhis:F.nhis==="y",kept:F.kept==="y",commit:F.commit.join("; "),who:F.who,act:dec&&dec.code};
+  const dec=st.dec;const v={id:uid("v"),d:TODAY,hh:h.id,p:p.id,by:UI.who,kind:prom?"prom":st.monthly?"home":"screen",warn:st.warn,pages:st.pages,med:F.med,why:F.med==="n"?whyKeys(F):null,medHome:F.medHome==="y",nhis:F.nhis==="y",kept:F.kept==="y",commit:F.commit.join("; "),who:F.who,act:dec&&dec.code};
   if(st.a.s!=null){p.bp.push({d:TODAY,s:st.a.s,di:st.a.di,by:UI.who,src:prom?"prom":"visit"});v.s=st.a.s;v.di=st.a.di;}
   if(!prom){if(F.med==="y"){if(p.htn.dx&&!p.htn.rx){p.htn.rx=true;p.htn.rxStart=p.htn.rxStart||TODAY;}}
     if(F.nhis==="y")h.nhis=true;else if(F.nhis==="n")h.nhis=false;
@@ -531,7 +554,7 @@ function saveVisit(){const F=UI.F,st=visitState(),p=st.p,h=IX.hh[p.hh],prom=F.ki
   if(dec&&dec.refer){mk(dec.code,dec.urg);note[0]+=" A referral is on the clinic's list.";}
   else if(!prom&&F.dxD==="y"&&F.med==="n"&&!seenRecently(p)){mk("relink",3);note=[p.name+": visit saved. Refer back to the facility: diabetes medicine is not being taken.","warn"];}
   if(F.feet==="sore"){mk("feet",2);note=[note[0]+" Foot sore: to be seen by a health worker today.","warn"];}
-  if(F.why==="side"&&!(dec&&dec.refer)&&!seenRecently(p))mk("side",3);
+  if(F.med==="n"&&whyKeys(F).includes("side")&&!(dec&&dec.refer)&&!seenRecently(p))mk("side",3);
   UI.F=null;UI.mode=prom?"person":"hh";UI.hh=h.id;UI.note=note;render();}
 
 /* ---------- clinic entry ---------- */
@@ -615,7 +638,7 @@ function calc(ids){const P=S.p.filter(p=>ids.has(IX.hh[p.hh].ln)),A=P.filter(p=>
   const two=rx.filter(p=>p.bp.length>=2&&diff(lastBP(p).d,p.bp[0].d)>=60);o.two=two.length;o.s0=mean(two.map(p=>p.bp[0].s));o.s1=mean(two.map(p=>lastBP(p).s));
   const drop=Math.max(0,(o.s0||0)-(o.s1||0)),py=two.reduce((a,p)=>a+Math.max(0,diff(TODAY,p.htn.rxStart>CFG.census?p.htn.rxStart:CFG.census))/365,0),M=CFG.model,av=(rate,rr)=>py*rate/100*(1-Math.pow(rr,drop/10));
   o.drop=drop;o.py=py;o.cvd=[av(M.cvdRate,M.rrCvdHi),av(M.cvdRate,M.rrCvd),av(M.cvdRate,M.rrCvdLo)];o.dth=[av(M.deathRate,M.rrDeathHi),av(M.deathRate,M.rrDeath),av(M.deathRate,M.rrDeathLo)];
-  const since=addD(TODAY,-90),pid=new Set(P.map(p=>p.id)),V=S.v.filter(v=>pid.has(v.p));o.why={};for(const v of V)if(v.d>=since&&v.med==="n"&&v.why)o.why[v.why]=(o.why[v.why]||0)+1;
+  const since=addD(TODAY,-90),pid=new Set(P.map(p=>p.id)),V=S.v.filter(v=>pid.has(v.p));o.why={};for(const v of V)if(v.d>=since&&v.med==="n")for(const k of whyList(v))o.why[k]=(o.why[k]||0)+1;
   const pv=V.filter(v=>v.d>=since&&v.med);o.medHome=[pv.filter(v=>v.medHome).length,pv.length];o.nhis=[S.hh.filter(h=>ids.has(h.ln)&&hhMonthly(h)&&h.nhis).length,S.hh.filter(h=>ids.has(h.ln)&&hhMonthly(h)).length];
   o.revPassed=P.filter(p=>alive(p)&&p.review&&p.review<TODAY).length;
   const R=S.ref.filter(r=>pid.has(r.p));o.ref=[1,2,3].map(u=>{const a=R.filter(r=>r.urg===u),lim=u===1?1:u===2?7:14;return{n:a.length,seen:a.filter(r=>r.seen).length,fast:a.filter(r=>r.seen&&diff(r.seen,r.d)<=lim).length,open:a.filter(r=>!r.seen).length,lim};});
@@ -631,7 +654,7 @@ function vReports(){const ids=scope(),c=calc(ids),T=CFG.targets,r1=x=>x==null?""
   o+='<h2 class="rep">2. Diabetes: from testing to control</h2><div class="card"><div class="tblwrap"><table>'+barHead+bar("Adults aged 35 or older tested for blood sugar",c.tested,c.A,T.tested,"Fingerstick by a Promoter, or already diagnosed")+bar("Found by the project and now on treatment",c.dlinked,c.dfound,T.dmLinked,"Screen raised or newly confirmed, out of those not diagnosed at the census")+bar("On treatment with the latest laboratory result at target",c.goal,c.gd,0,"HbA1c below "+CFG.glu.a1cGoal+"% or fasting glucose below "+CFG.glu.fastGoal.toFixed(1)+" mmol/L, tested three months or more after starting")+"</table></div><p class='small muted'>"+c.dm+" adults have diagnosed diabetes; "+c.drx+" are on treatment. "+c.pos+" have a raised screening result and wait for the laboratory test. Few people on treatment have had a follow-up laboratory test, so the last row rests on small numbers.</p></div>";
   o+='<h2 class="rep">3. Blood pressure change and modelled events averted</h2><div class="card">'+tbl(["Measure","#Value"],["<tr><td>People on treatment with readings at least two months apart</td><td class='n'>"+c.two+"</td></tr>","<tr><td>Average upper reading, first reading on the register</td><td class='n'>"+r1(c.s0)+"</td></tr>","<tr><td>Average upper reading, latest</td><td class='n'>"+r1(c.s1)+"</td></tr>","<tr><td>Fall (mmHg)</td><td class='n'><b>"+r1(c.drop)+"</b></td></tr>","<tr><td>Modelled major cardiovascular events averted so far (stroke, heart attack, heart failure)</td><td class='n'><b>"+r1(c.cvd[1])+"</b> ("+r1(c.cvd[0])+" to "+r1(c.cvd[2])+")</td></tr>","<tr><td>Modelled deaths averted so far</td><td class='n'><b>"+r1(c.dth[1])+"</b> ("+r1(c.dth[0])+" to "+r1(c.dth[2])+")</td></tr>"])+"<p class='small muted'>The last two rows are modelled, not measured. They apply the trial result that each 10 mmHg fall in the upper reading lowers major cardiovascular events by 20% and deaths by 13% (Ettehad and others, Lancet 2016) to "+r1(c.py)+" person-years on treatment. The yearly rates without the fall ("+CFG.model.cvdRate+"% for events, "+CFG.model.deathRate+"% for deaths) are planning assumptions set in Settings. The fall also includes the tendency of a first high reading to be lower when repeated, so a comparison area is needed to attribute it to the project.</p></div>";
   const wy=Object.entries(c.why).sort((a,b)=>b[1]-a[1]),wn=wy.reduce((a,x)=>a+x[1],0);
-  o+='<h2 class="rep">4. Staying on treatment</h2><div class="card"><h3>Reasons for not taking the medicine every day, last 90 days</h3>'+tbl(["Reason","#Visits","#%"],wy.map(([k,n])=>"<tr><td>"+esc(WHY[k][0])+"</td><td class='n'>"+n+"</td><td class='n'>"+pct(n,wn)+"%</td></tr>"))+'<div class="tblwrap"><table>'+barHead+bar("Medicine in the house at the visit",c.medHome[0],c.medHome[1],0,"Home visits to patients, last 90 days")+bar("Households on monthly visits with an active NHIS card",c.nhis[0],c.nhis[1],0)+"</table></div><p class='small'>"+c.revPassed+" people have a clinic review date that has passed.</p></div>";
+  o+='<h2 class="rep">4. Staying on treatment</h2><div class="card"><h3>Reasons for not taking the medicine every day, last 90 days</h3>'+tbl(["Reason (a person may give more than one)","#Times given","#%"],wy.map(([k,n])=>"<tr><td>"+esc(WHY[k][0])+"</td><td class='n'>"+n+"</td><td class='n'>"+pct(n,wn)+"%</td></tr>"))+'<div class="tblwrap"><table>'+barHead+bar("Medicine in the house at the visit",c.medHome[0],c.medHome[1],0,"Home visits to patients, last 90 days")+bar("Households on monthly visits with an active NHIS card",c.nhis[0],c.nhis[1],0)+"</table></div><p class='small'>"+c.revPassed+" people have a clinic review date that has passed.</p></div>";
   o+='<h2 class="rep">5. Referrals</h2><div class="card">'+tbl(["Urgency","#Referred","#Seen at the facility","#Seen in time","#Still open"],c.ref.map((x,i)=>"<tr><td>"+["Emergency (same day)","Prompt (within days)","Routine"][i]+"</td><td class='n'>"+x.n+"</td><td class='n'>"+x.seen+(x.n?" ("+pct(x.seen,x.n)+"%)":"")+"</td><td class='n'>"+x.fast+' <span class="small muted">within '+x.lim+" day"+(x.lim>1?"s":"")+"</span></td><td class='n'>"+x.open+"</td></tr>"))+"</div>";
   const H=c.hab,hr=(l,a,t)=>"<tr><td>"+l+"</td><td class='n'>"+(a[0]??"")+"%</td><td class='n'><b>"+(a[1]??"")+"%</b></td><td class='n'>"+(t?"≥ "+t+"%":"")+"</td></tr>";
   o+='<h2 class="rep">6. Habits and risk</h2><div class="card">'+tbl(["Adults 35+ asked at two or more visits ("+c.hb+")","#First answer","#Latest answer","#Target"],[hr("No salt added at the table yesterday",H.salt),hr("At most one sweet drink yesterday",H.drinks),hr("Active for 30 minutes on five or more days of the last seven",H.act,T.active),hr("Does not use tobacco",H.tob)])+"<p class='small'>Raised waist measurement: "+c.waist[0]+" of "+c.waist[1]+" adults measured ("+pct(c.waist[0],c.waist[1])+"%).</p><p class='small muted'>These are answers given to the Leader Neighbor, who also does the counselling, so they may overstate change. The baseline and endline surveys are the measure of behaviour.</p></div>";
@@ -646,7 +669,7 @@ function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='
   return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("African Diabetes Risk Score that counts as raised","above "+CFG.adrs.cut),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
   "<div class='card'><h3>Diabetes-risk flag</h3><div class='row'><label>African Diabetes Risk Score counted as raised when above "+num("a.cut",CFG.adrs.cut,"",90)+"</label></div><p class='small muted'>The score uses age, waist and hypertension (Mayige 2014; derived in Tanzania, Senegal and Guinea). An adult aged 35 or older with a raised score moves to monthly visits. The cut-off of 1.46 was published for South Africa and has not been checked in Ghana. A higher cut-off flags fewer people. Every adult aged 35 or older has the fingerstick test whatever the score.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.6, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.7, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
