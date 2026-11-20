@@ -26,9 +26,9 @@ const UI={who:"adm",tab:null,hh:null,pid:null,F:null,mode:null,area:"all",q:"",a
 const me=()=>IX.w[UI.who];
 const TABS={ln:[["today","Today"],["hhs","Households"],["group","Group lesson"],["reports","My results"],["pages","Counselling pages"]],
   lnt:[["coach","My Care Group"],["refs","Referrals"],["hhs","Households"],["reports","Results"],["pages","Counselling pages"]],
-  prom:[["screen","Screening day"],["recheck","BP re-checks"],["refs","Referrals"],["coach","Quality"],["reports","Reports"],["pages","Counselling pages"]],
+  prom:[["screen","Screening day"],["recheck","BP re-checks"],["refs","Referrals"],["coach","Quality"],["reports","Reports"],["compare","Care Groups compared"],["pages","Counselling pages"]],
   clinic:[["refs","Referrals"],["patients","Patients"],["reports","Reports"],["pages","Counselling pages"]],
-  admin:[["reports","Reports"],["refs","Referrals"],["workers","Workers"],["settings","Settings"],["pages","Counselling pages"]]};
+  admin:[["reports","Reports"],["compare","Care Groups compared"],["refs","Referrals"],["workers","Workers"],["settings","Settings"],["pages","Counselling pages"]]};
 const ROLE={admin:"Administrator",clinic:"Clinic",prom:"Promoter (CHO)",lnt:"Leader Neighbor Trainer",ln:"Leader Neighbor"};
 const lnsOf=w=>w.role==="ln"?[w.id]:w.role==="lnt"?S.w.filter(x=>x.lnt===w.id).map(x=>x.id):S.w.filter(x=>x.role==="ln").map(x=>x.id);
 function scope(){const w=me();let ids=lnsOf(w);if(UI.area!=="all"){if(UI.area.startsWith("cg"))ids=ids.filter(i=>IX.w[i].cg===+UI.area.slice(2));else if(ids.includes(UI.area))ids=[UI.area];}return new Set(ids);}
@@ -230,16 +230,6 @@ function vGroup(){const w=me(),L=LESSONS[CUR],gm=S.gm.find(g=>g.ln===w.id&&g.m==
   o+='<div class="card"><h3>The year</h3>'+tbl(["#Month","Lesson","Held","#Attended"],LESSONS.map((x,i)=>{const g=S.gm.find(g=>g.ln===w.id&&g.m===i);return "<tr><td class='n'>"+(i+1)+"</td><td>"+esc(x[0])+"</td><td>"+(g?fmtD(g.d):i<CUR?'<span class="chip warn">not held</span>':"")+"</td><td class='n'>"+(g?g.att+" of "+g.cohort:"")+"</td></tr>";}))+"</div>";return o;}
 
 /* ---------- supervision: Trainers and Promoters ---------- */
-function lnRow(l){const hs=IX.lnH[l.id]||[],mo=hs.filter(hhMonthly),done=mo.filter(h=>mIdx(h.last)===CUR).length,sc=hs.filter(h=>!hhMonthly(h)),up=sc.filter(h=>diff(TODAY,h.last)<CFG.recheck).length;
-  const gms=S.gm.filter(g=>g.ln===l.id),gmNow=gms.some(g=>g.m===CUR),qs=S.q.filter(x=>x.ln===l.id),lq=qs[qs.length-1],refs=hs.flatMap(h=>IX.hhP[h.id]).flatMap(openRef).length;
-  return{l,mo:mo.length,done,sc:sc.length,up,gms:gms.length,gmNow,lq,refs,att:pct(gms.reduce((a,g)=>a+g.att,0),gms.reduce((a,g)=>a+g.cohort,0))};}
-function vCoach(){const ids=[...scope()],rows=ids.map(i=>lnRow(IX.w[i]));
-  let o="<h1>"+(me().role==="lnt"?"My Care Group":"Quality of work")+"</h1>"+areaSel()+"<p class='muted'>Month "+(CUR+1)+" of 12, "+half()+". The checklist score is flagged below "+CFG.qivcFlag+"%.</p>";
-  if(UI.note){o+='<div class="note">'+esc(UI.note[0])+"</div>";UI.note=null;}
-  o+='<div class="card">'+tbl(["Leader Neighbor","#Monthly visits done","#Screening up to date","Group lesson","#Attendance","#Open referrals","Last checklist",""],rows.map(r=>"<tr><td>"+esc(r.l.name)+'<div class="small muted">Care Group '+r.l.cg+"</div></td><td class='n'>"+r.done+" / "+r.mo+"</td><td class='n'>"+r.up+" / "+r.sc+"</td><td>"+(r.gmNow?'<span class="chip good">held</span>':'<span class="chip warn">not yet</span>')+"</td><td class='n'>"+(r.att==null?"":r.att+"%")+"</td><td class='n'>"+r.refs+"</td><td>"+(r.lq?'<span class="chip '+(r.lq.score<CFG.qivcFlag?"bad":"good")+'">'+r.lq.score+"%</span> "+fmtD(r.lq.d):'<span class="chip warn">never</span>')+'</td><td><button data-act="qivc" data-id="'+r.l.id+'">Observe</button></td></tr>'))+"</div>";
-  const missed={};for(const x of S.q.filter(x=>scope().has(x.ln)))x.ok.forEach((k,i)=>{missed[i]=missed[i]||[0,0];missed[i][1]++;if(!k)missed[i][0]++;});
-  o+='<div class="card"><h3>Steps most often not done</h3>'+tbl(["Step","#Not done","#Observed","#%"],Object.entries(missed).sort((a,b)=>b[1][0]/b[1][1]-a[1][0]/a[1][1]).slice(0,5).map(([i,m])=>"<tr><td>"+esc(QIVC[i])+"</td><td class='n'>"+m[0]+"</td><td class='n'>"+m[1]+"</td><td class='n'>"+pct(m[0],m[1])+"%</td></tr>"))+"</div>";return o;}
-function vQivc(){const F=UI.F,l=IX.w[F.ln];return '<button class="link" data-act="cancel">‹ Cancel</button><h1>Home visit checklist: '+esc(l.name)+"</h1><p class='muted'>Tick each step that was done well. Talk through the result with the Leader Neighbor afterwards, starting with what went well.</p><div class=\"card\">"+multi("ok",QIVC,F.ok,true)+'<textarea data-t="note" placeholder="Comments">'+esc(F.note)+'</textarea><button class="pri" data-act="saveqivc">Save ('+pct(F.ok.length,QIVC.length)+"%)</button></div>";}
 
 /* ---------- lists for Promoters and the clinic ---------- */
 function areaSel(){const w=me();if(w.role==="ln")return"";const ids=lnsOf(w);let o='<div class="row"><label>Area <select id="area"><option value="all">All</option>';
@@ -301,7 +291,28 @@ function vReports(){const ids=scope(),c=calc(ids),T=CFG.targets,r1=x=>x==null?""
   const dc={};for(const p of c.deaths)dc[p.death.cause]=(dc[p.death.cause]||0)+1;const et={};for(const e of c.ev)et[e.type]=(et[e.type]||0)+1;
   o+='<h2 class="rep">7. Events and deaths</h2><div class="card">'+tbl(["Event since the start of home visits","#Number"],EVENTS.map(t=>"<tr><td>"+t+"</td><td class='n'>"+(et[t]||0)+"</td></tr>"))+tbl(["Deaths among adults 35+ since the census, by reported cause","#Number"],Object.entries(dc).sort((a,b)=>b[1]-a[1]).map(([k,n])=>"<tr><td>"+esc(k)+"</td><td class='n'>"+n+"</td></tr>").concat(["<tr><td><b>All deaths</b> ("+c.deathsDx+" in people diagnosed with hypertension or diabetes)</td><td class='n'><b>"+c.deaths.length+"</b></td></tr>"]))+"<p class='small muted'>At this population size the number of deaths is too small to show an effect of the project. Deaths are recorded to close each person's record and to prepare for a larger programme.</p></div>";
   if(me().role!=="ln"){const rows=[...ids].map(i=>lnRow(IX.w[i]));const tot=(k)=>rows.reduce((a,r)=>a+r[k],0);
-    o+='<h2 class="rep">8. Work done</h2><div class="card"><div class="tblwrap"><table>'+barHead+bar("Monthly home visits done this month",tot("done"),tot("mo"),0,"Households with a patient or a person at risk")+bar("Screening households visited in the last four months",tot("up"),tot("sc"),0)+bar("Group lessons held this month",rows.filter(r=>r.gmNow).length,rows.length,0)+bar("Attendance at group lessons, all months",c.gm.reduce((a,g)=>a+g.att,0),c.gm.reduce((a,g)=>a+g.cohort,0),0)+"</table></div><p class='small'>"+c.visits+" home visit records in all.</p></div>";}
+    o+='<h2 class="rep">8. Work done</h2><div class="card"><div class="tblwrap"><table>'+barHead+bar("Monthly home visits done this month",tot("done"),tot("mo"),0,"Households with a patient or a person at risk")+bar("Screening households visited in the last four months",tot("up"),tot("sc"),0)+bar("Group lessons held this month",rows.filter(r=>r.gmNow).length,rows.length,0)+bar("Attendance at group lessons, all months",c.gm.reduce((a,g)=>a+g.att,0),c.gm.reduce((a,g)=>a+g.cohort,0),0)+"</table></div><p class='small'>"+c.visits+" home visit records in all.</p></div>"+qReport(ids);}
+  else{const mine=["home","group"].map(k=>qLast(me().id,k)).filter(Boolean);o+='<h2 class="rep">My QIVC scores</h2>'+(mine.length?mine.map(x=>qDetail(x,"ln")).join(""):'<div class="card"><p class="muted">Your Trainer has not yet observed a home visit or a group lesson.</p></div>');}
+  return o;}
+/* ---------- Care Groups compared ---------- */
+function vCompare(){const T=CFG.targets,cgs=S.w.filter(w=>w.role==="lnt").sort((a,b)=>a.cg-b.cg),all=new Set(S.w.filter(w=>w.role==="ln").map(w=>w.id));
+  const data=cgs.map(t=>{const ids=new Set(lnsOf(t)),c=calc(ids),rows=[...ids].map(i=>lnRow(IX.w[i])),R=c.ref.reduce((a,x)=>[a[0]+x.seen,a[1]+x.n],[0,0]),qh=[...ids].map(i=>qLast(i,"home")).filter(Boolean),qg=[...ids].map(i=>qLast(i,"group")).filter(Boolean);
+    return{t,c,done:[rows.reduce((a,r)=>a+r.done,0),rows.reduce((a,r)=>a+r.mo,0)],att:[c.gm.reduce((a,g)=>a+g.att,0),c.gm.reduce((a,g)=>a+g.cohort,0)],R,qh:qh.length?[Math.round(mean(qh.map(q=>q.score))),100]:[0,0],qg:qg.length?[Math.round(mean(qg.map(q=>q.score))),100]:[0,0]};});
+  const A=calc(all),IND=[["Adults aged 35 or older screened for blood pressure",x=>[x.c.screened,x.c.A],T.screened,[A.screened,A.A]],
+    ["People with hypertension who know their status",x=>[x.c.aware,x.c.hyp],T.aware,[A.aware,A.hyp]],
+    ["Found by the project and now on treatment",x=>[x.c.linked,x.c.found],T.linked,[A.linked,A.found]],
+    ["On treatment and taking the medicine every day",x=>[x.c.adh,x.c.asked],T.adherent,[A.adh,A.asked]],
+    ["On treatment three months or more with BP below 140/90",x=>[x.c.ctrl,x.c.cd],T.controlled,[A.ctrl,A.cd]],
+    ["Adults aged 35 or older tested for blood sugar",x=>[x.c.tested,x.c.A],T.tested,[A.tested,A.A]],
+    ["Referrals seen at the facility",x=>x.R,0,null],
+    ["Monthly home visits done this month",x=>x.done,0,null],
+    ["Attendance at group lessons, all months",x=>x.att,0,null],
+    ["Home visit QIVC, mean latest score of Leader Neighbors",x=>x.qh,70,null,1],
+    ["Group session QIVC, mean latest score of Leader Neighbors",x=>x.qg,70,null,1]];
+  let o="<h1>Care Groups compared</h1><p class='muted'>Month "+(CUR+1)+" of 12. One bar for each Care Group. The black mark is the target. A bar is red when the Care Group is below the target, or, where there is no target, when it is the lowest. Example data.</p>";
+  for(const [label,f,target,tot,isScore] of IND){const v=data.map(x=>{const[n,d]=f(x);return{x,n,d,p:pct(n,d)};}),lo=Math.min(...v.filter(z=>z.p!=null).map(z=>z.p)),sum=tot||[v.reduce((a,z)=>a+z.n,0),v.reduce((a,z)=>a+z.d,0)];
+    o+='<div class="card"><div class="row"><h2 class="grow">'+esc(label)+"</h2>"+(target?'<span class="chip">Target '+target+"%</span>":"")+(isScore?"":'<span class="chip info">All: '+pct(sum[0],sum[1])+"%</span>")+'</div><div class="tblwrap"><table>'+v.map(z=>{const bad=z.p!=null&&(target?z.p<target:z.p===lo);
+      return "<tr><td>Care Group "+z.x.t.cg+'<div class="small muted">'+esc(z.x.t.name)+'</div></td><td style="width:55%"><div class="meter" style="height:16px"><i style="width:'+(z.p||0)+"%;background:var(--"+(bad?"bad":"accent")+')"></i>'+(target?'<b style="left:'+target+'%"></b>':"")+"</div></td><td class='n'><b>"+(z.p==null?"–":z.p+"%")+"</b></td><td class='n small muted'>"+(isScore?"":z.n+" of "+z.d)+"</td></tr>";}).join("")+"</table></div></div>";}
   return o;}
 function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
   return "<h1>Workers</h1><div class='card'>"+tbl(["Role","Name","Covers"],[...g("prom").map(w=>"<tr><td>Promoter (CHO)</td><td>"+esc(w.name)+"</td><td>"+g("lnt").filter(t=>t.prom===w.id).length+" Trainers</td></tr>"),...g("clinic").map(w=>"<tr><td>Clinic</td><td>"+esc(w.name)+"</td><td>All referrals</td></tr>"),...g("lnt").map(w=>"<tr><td>Leader Neighbor Trainer</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+lnsOf(w).length+" Leader Neighbors</td></tr>"),...g("ln").map(w=>"<tr><td>Leader Neighbor</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+(IX.lnH[w.id]||[]).length+" households, "+(IX.lnH[w.id]||[]).filter(hhMonthly).length+" on monthly visits</td></tr>")])+"</div>";}
@@ -309,19 +320,21 @@ function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='
   return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("African Diabetes Risk Score that counts as raised","above "+CFG.adrs.cut),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
   "<div class='card'><h3>Diabetes-risk flag</h3><div class='row'><label>African Diabetes Risk Score counted as raised when above "+num("a.cut",CFG.adrs.cut,"",90)+"</label></div><p class='small muted'>The score uses age, waist and hypertension (Mayige 2014; derived in Tanzania, Senegal and Guinea). An adult aged 35 or older with a raised score moves to monthly visits. The published cut-off for South Africa is 1.46. The project uses 3.5, so that each Leader Neighbor's monthly cohort stays near 12 people; neither value has been checked in Ghana. A higher cut-off flags fewer people. Every adult aged 35 or older has the fingerstick test whatever the score.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.8, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.10, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
   $("#who").textContent=ROLE[w.role]+(w.role==="admin"?"":": "+w.name)+" · example data";
   $("#nav").innerHTML=tabs.map(t=>'<button class="tab'+(t[0]===UI.tab&&!UI.mode?" on":"")+'" data-tab="'+t[0]+'">'+t[1]+"</button>").join("");
-  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings,pages:vPages};
+  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings,pages:vPages,compare:vCompare};
   const M={hh:vHh,person:vPerson,visit:vVisit,clinic:vClinic,event:vEvent,qivc:vQivc};
   $("#app").innerHTML=(UI.mode?M[UI.mode]:V[UI.tab])();if(UI.keep){window.scrollTo(0,y);UI.keep=false;}else window.scrollTo(0,0);}
 function roleSel(){const g=(r,l)=>'<optgroup label="'+l+'">'+S.w.filter(w=>w.role===r).map(w=>'<option value="'+w.id+'">'+esc(r==="admin"?"Administrator":r==="clinic"?"Clinic":w.name+(w.cg?" (Care Group "+w.cg+")":""))+"</option>").join("")+"</optgroup>";
   $("#role").innerHTML=g("admin","Administrator")+g("prom","Promoters (CHO)")+g("clinic","Clinic")+g("lnt","Leader Neighbor Trainers")+g("ln","Leader Neighbors");$("#role").value=UI.who;}
 function setPath(o,path,v){const k=path.split(".");for(let i=0;i<k.length-1;i++)o=o[k[i]];o[k[k.length-1]]=v;}
 document.addEventListener("click",e=>{const el=e.target.closest("button,[data-pid]");if(!el)return;const d=el.dataset;
+  if(d.qa){UI.F.a[d.qa]=UI.F.a[d.qa]===+d.v?null:+d.v;if(UI.F.a[d.qa]==null)delete UI.F.a[d.qa];UI.keep=true;return render();}
+  if(d.f==="kind"&&UI.mode==="qivc"){if(UI.F.kind!==d.v){UI.F.kind=d.v;UI.F.a={};UI.F.r={};}UI.keep=true;return render();}
   if(d.f){UI.F[d.f]=UI.F[d.f]===d.v?null:d.v;UI.keep=true;return render();}
   if(d.m){const arr=d.m==="gatt"?UI.G.att:UI.F[d.m];if(d.v==="__none"){arr.length=0;arr.push("__none");}else{const i=arr.indexOf(d.v),n=arr.indexOf("__none");if(n>=0)arr.splice(n,1);const j=arr.indexOf(d.v);if(j>=0)arr.splice(j,1);else arr.push(d.v);}UI.keep=true;return render();}
   if(d.tab){UI.tab=d.tab;UI.mode=null;UI.F=null;UI.all=false;UI.q="";UI.pg=null;return render();}
@@ -340,8 +353,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("button,[data-pi
   if(A==="event"){UI.F={pid:d.id,type:null,d:TODAY,cause:null};UI.mode="event";return render();}
   if(A==="saveevent")return saveEvent();
   if(A==="finger")return saveFinger(d.id);
-  if(A==="qivc"){UI.F={ln:d.id,ok:[],note:""};UI.mode="qivc";return render();}
-  if(A==="saveqivc"){const F=UI.F,ok=QIVC.map(x=>F.ok.includes(x));S.q.push({id:uid("q"),ln:F.ln,by:UI.who,d:TODAY,ok,score:pct(F.ok.length,QIVC.length),note:F.note});UI.note=["Checklist saved for "+IX.w[F.ln].name+": "+pct(F.ok.length,QIVC.length)+"%."];UI.F=null;UI.mode=null;return render();}
+  if(A==="qivc"){const w=IX.w[d.id];UI.F={wid:d.id,kind:d.kind||qKinds(w)[0],a:{},r:{},note:"",tried:false};UI.mode="qivc";return render();}
+  if(A==="saveqivc"){const F=UI.F,its=QIV[F.kind].items;if(its.some(i=>F.a[i[0]]==null)){F.tried=true;return render();}const sc=qScore(F.a);
+    S.q.push({id:uid("q"),wid:F.wid,kind:F.kind,by:UI.who,d:TODAY,a:F.a,r:F.r,score:sc.score,note:F.note});UI.note=[QIV[F.kind].name+" checklist saved for "+IX.w[F.wid].name+": "+sc.score+"%."];UI.F=null;UI.mode=null;UI.tab="coach";return render();}
   if(A==="savegroup"){const w=me(),hs=(IX.lnH[w.id]||[]).filter(hhMonthly),n=hs.flatMap(h=>IX.hhP[h.id].filter(p=>alive(p)&&(isPatient(p)||atRisk(p)))).length;S.gm.push({id:uid("g"),ln:w.id,m:CUR,d:TODAY,lesson:CUR,att:UI.G.att.length,cohort:n,who:UI.G.att.slice()});UI.G=null;return render();}
   if(A==="addp"){const name=$("#a_name").value.trim(),age=+$("#a_age").value;if(!name||!(age>=18&&age<=110))return;const p={id:"p"+(S.p.length+1),hh:UI.hh,name,sex:$("#a_sex").value,age,bp:[],glu:[],htn:{},dm:{},meds:[]};S.p.push(p);index();UI.keep=true;return render();}});
 document.addEventListener("input",e=>{const el=e.target,d=el.dataset;
@@ -353,6 +367,7 @@ document.addEventListener("input",e=>{const el=e.target,d=el.dataset;
   if(d.c&&UI.F){UI.F[d.c]=el.checked;UI.keep=true;return render();}
   if(el.id==="q"){UI.q=el.value;UI.keep=true;render();const n=$("#q");n.focus();n.setSelectionRange(n.value.length,n.value.length);}});
 document.addEventListener("change",e=>{const el=e.target;
+  if(el.dataset.qr&&UI.F){UI.F.r[el.dataset.qr]=+el.value||null;return;}
   if(el.id==="role"){UI.who=el.value;UI.tab=null;UI.mode=null;UI.F=null;UI.G=null;UI.area="all";UI.all=false;UI.q="";render();}
   if(el.id==="area"){UI.area=el.value;UI.all=false;UI.keep=true;render();}});
 build();index();roleSel();render();

@@ -34,7 +34,7 @@ const CFG={country:"Ghana",
   // Modelled events averted. Relative risk per 10 mmHg lower systolic pressure: Ettehad et al., Lancet 2016;387:957-67.
   // Yearly rates without the fall in pressure are planning assumptions. Replace them with local figures.
   model:{rrCvd:.80,rrCvdLo:.77,rrCvdHi:.83,rrDeath:.87,rrDeathLo:.84,rrDeathHi:.91,cvdRate:1.5,deathRate:2.0},
-  qivcFlag:70};
+  };
 CFG.census=addD(CFG.start,-75);
 const mIdx=d=>Math.floor(diff(d,CFG.start)/MLEN);            // 0 = first month of home visits
 const mStart=m=>addD(CFG.start,m*MLEN);
@@ -91,7 +91,6 @@ const WHY={forget:["I forget","m_forget"],well:["I feel well","m_well"],side:["I
 const MEDS=["Calcium-channel blocker (for example amlodipine)","ACE inhibitor or ARB (for example lisinopril, losartan)","Thiazide-type diuretic","Beta-blocker","Metformin","Sulfonylurea (for example glibenclamide, gliclazide)","Insulin","Statin","Aspirin","Other"];
 const EVENTS=["Stroke","Heart attack","Hospital admission for BP or sugar","Foot ulcer","Amputation"];
 const CAUSES=["Stroke","Heart attack or sudden collapse","Heart failure","Kidney failure","Diabetes complication","Other illness","Injury","Not known"];
-const QIVC=["Greeted the family and asked permission to visit","Invited the person who cooks and other adults to sit in","Asked about warning signs","Person rested five minutes, seated, arm at heart level","Took two readings and entered both","Explained the reading in plain words","Asked about medicine without scolding","Showed the counselling page and asked its question before telling","Agreed on one or two small actions","Recorded the visit, gave a referral slip if needed, fixed the next visit"];
 
 /* ---------- data ---------- */
 const S={w:[],hh:[],p:[],v:[],ref:[],gm:[],q:[],ev:[]};
@@ -226,9 +225,12 @@ function build(){
       if(p.age>=35&&p.hab&&p._t.n%3===0){const b=p.hab[0];p.hab.push({d,salt:b.salt&&R()<.6,drinks:b.drinks&&R()<.65?b.drinks:0,act:Math.min(7,b.act+Math.floor(R()*3)),tob:b.tob&&R()<.9});p.inactive=p.hab[p.hab.length-1].act<3;}
       S.v.push(v);}
     return any;}
-  // Trainers observe Leader Neighbors with the quality checklist
-  for(const ln of LN){for(let m=1;m<=CUR;m+=2+Math.floor(R()*2)){const d=addD(mStart(m),16+R()*12);if(d>TODAY)break;
-    const ok=QIVC.map(()=>R()<ln.q+.1+m*.012);S.q.push({id:uid("q"),ln:ln.id,by:ln.lnt,d,ok,score:pct(ok.filter(Boolean).length,ok.length)});}}
+  // Trainers observe Leader Neighbors on both checklists every 6 months; Promoters observe Trainers on the group checklist every 3 months.
+  const obs=(w,kind,d,by,skill)=>{const a={};for(const it of QIV[kind].items){const cond=/^(If |For a |Where |Optional)/.test(it[2]);a[it[0]]=R()<(cond?.35:.04)?2:R()<skill?1:0;}
+    const r={};for(const x of QIV[kind].ratings)r[x[0]]=clamp(Math.round(skill*10+N(0,1)),3,10);S.q.push({id:uid("q"),wid:w.id,kind,by,d,a,r,score:qScore(a).score});return qScore(a).score;};
+  for(const ln of LN)for(const kind of ["home","group"]){if(R()<.14)continue;let d=addD(CFG.start,20+R()*110),k=0;
+    while(d<=TODAY&&k<3){const sc=obs(ln,kind,d,ln.lnt,clamp(ln.q-.06+k*.07+(kind==="group"?-.03:0),.3,.97));k++;d=addD(d,sc<70?QFU+R()*20:183+R()*15);}}
+  for(const t of S.w.filter(w=>w.role==="lnt")){let d=addD(CFG.start,25+R()*40),k=0;while(d<=TODAY&&k<4){obs(t,"group",d,t.prom,clamp(.78+R()*.14+k*.02,.5,.97));k++;d=addD(d,91+R()*25);}}
   for(const p of S.p)p.bp=p.bp.filter(r=>r.s!=null).sort((a,b)=>a.d<b.d?-1:1);
   // The household followed in the training video: Yaw Darko, whose treatment started three weeks ago, and his wife Adwoa.
   // Leader Neighbor Akosua Asante (Care Group 3) and Promoter Hawa Alhassan.
