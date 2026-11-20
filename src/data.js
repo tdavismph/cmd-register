@@ -27,7 +27,9 @@ const CFG={country:"Ghana",
   // Blood glucose, mmol/L and HbA1c %: WHO diagnostic values. For clinical review before field use.
   glu:{fast:7.0,rand:11.1,a1c:6.5,a1cGoal:7.0,fastGoal:7.0},
   waist:{M:94,F:80},        // cm; raised waist (IDF values used for sub-Saharan Africa). Draft.
-  riskFlag:3,               // draft diabetes-risk score that counts as raised
+  // African Diabetes Risk Score (Mayige 2014; derived in Tanzania, Senegal and Guinea): age, waist and hypertension.
+  // Coefficients and cut-off as published for the South African Diabetes Prevention Programme. The cut-off needs a local check.
+  adrs:{b0:-11.012,age:.045,waist:.048,htn:.649,cut:1.46},
   targets:{screened:95,aware:70,linked:70,adherent:70,controlled:55,tested:95,dmLinked:70,active:50},
   // Modelled events averted. Relative risk per 10 mmHg lower systolic pressure: Ettehad et al., Lancet 2016;387:957-67.
   // Yearly rates without the fall in pressure are planning assumptions. Replace them with local figures.
@@ -107,9 +109,10 @@ const fingers=p=>p.glu.filter(g=>g.t==="finger");
 const labs=p=>p.glu.filter(g=>g.t!=="finger");
 const gluPos=g=>g.t==="a1c"?g.v>=CFG.glu.a1c:g.t==="finger"&&!g.fast?g.v>=CFG.glu.rand:g.v>=CFG.glu.fast;
 const screenPos=p=>!p.dm.dx&&!p.dm.ruledOut&&fingers(p).some(gluPos);
-function riskScore(p){return (p.age>=45?1:0)+(p.waist&&p.waist>=CFG.waist[p.sex]?1:0)+(p.fam?1:0)+(p.inactive?1:0)+(p.prevSugar?1:0);}
+function riskScore(p){if(!p.waist)return null;const A=CFG.adrs,h=p.htn.dx||elev(lastBP(p))?1:0;return 100/(1+Math.exp(-(A.b0+A.age*p.age+A.waist*p.waist+A.htn*h)));}
+const riskHigh=p=>{const r=riskScore(p);return r!=null&&r>CFG.adrs.cut;};
 function raisedOnce(p){const l=lastBP(p);return !p.htn.dx&&!p.htn.ruledOut&&elev(l);}
-const atRisk=p=>alive(p)&&!isPatient(p)&&(raisedOnce(p)||screenPos(p)||(p.age>=35&&riskScore(p)>=CFG.riskFlag));
+const atRisk=p=>alive(p)&&!isPatient(p)&&(raisedOnce(p)||screenPos(p)||(p.age>=35&&riskHigh(p)));
 const hhMonthly=h=>(IX.hhP[h.id]||[]).some(p=>alive(p)&&(isPatient(p)||atRisk(p)));
 function htnLabel(p){if(p.htn.dx)return p.htn.rx?["On BP treatment","info"]:["BP diagnosed, not on treatment","bad"];
   if(p.htn.ruledOut&&!elev(lastBP(p)))return["BP normal at clinic","good"];

@@ -135,7 +135,9 @@ const CFG={country:"Ghana",
   // Blood glucose, mmol/L and HbA1c %: WHO diagnostic values. For clinical review before field use.
   glu:{fast:7.0,rand:11.1,a1c:6.5,a1cGoal:7.0,fastGoal:7.0},
   waist:{M:94,F:80},        // cm; raised waist (IDF values used for sub-Saharan Africa). Draft.
-  riskFlag:3,               // draft diabetes-risk score that counts as raised
+  // African Diabetes Risk Score (Mayige 2014; derived in Tanzania, Senegal and Guinea): age, waist and hypertension.
+  // Coefficients and cut-off as published for the South African Diabetes Prevention Programme. The cut-off needs a local check.
+  adrs:{b0:-11.012,age:.045,waist:.048,htn:.649,cut:1.46},
   targets:{screened:95,aware:70,linked:70,adherent:70,controlled:55,tested:95,dmLinked:70,active:50},
   // Modelled events averted. Relative risk per 10 mmHg lower systolic pressure: Ettehad et al., Lancet 2016;387:957-67.
   // Yearly rates without the fall in pressure are planning assumptions. Replace them with local figures.
@@ -215,9 +217,10 @@ const fingers=p=>p.glu.filter(g=>g.t==="finger");
 const labs=p=>p.glu.filter(g=>g.t!=="finger");
 const gluPos=g=>g.t==="a1c"?g.v>=CFG.glu.a1c:g.t==="finger"&&!g.fast?g.v>=CFG.glu.rand:g.v>=CFG.glu.fast;
 const screenPos=p=>!p.dm.dx&&!p.dm.ruledOut&&fingers(p).some(gluPos);
-function riskScore(p){return (p.age>=45?1:0)+(p.waist&&p.waist>=CFG.waist[p.sex]?1:0)+(p.fam?1:0)+(p.inactive?1:0)+(p.prevSugar?1:0);}
+function riskScore(p){if(!p.waist)return null;const A=CFG.adrs,h=p.htn.dx||elev(lastBP(p))?1:0;return 100/(1+Math.exp(-(A.b0+A.age*p.age+A.waist*p.waist+A.htn*h)));}
+const riskHigh=p=>{const r=riskScore(p);return r!=null&&r>CFG.adrs.cut;};
 function raisedOnce(p){const l=lastBP(p);return !p.htn.dx&&!p.htn.ruledOut&&elev(l);}
-const atRisk=p=>alive(p)&&!isPatient(p)&&(raisedOnce(p)||screenPos(p)||(p.age>=35&&riskScore(p)>=CFG.riskFlag));
+const atRisk=p=>alive(p)&&!isPatient(p)&&(raisedOnce(p)||screenPos(p)||(p.age>=35&&riskHigh(p)));
 const hhMonthly=h=>(IX.hhP[h.id]||[]).some(p=>alive(p)&&(isPatient(p)||atRisk(p)));
 function htnLabel(p){if(p.htn.dx)return p.htn.rx?["On BP treatment","info"]:["BP diagnosed, not on treatment","bad"];
   if(p.htn.ruledOut&&!elev(lastBP(p)))return["BP normal at clinic","good"];
@@ -428,7 +431,7 @@ function vHh(){const h=IX.hh[UI.hh],ps=IX.hhP[h.id]||[],ln=IX.w[h.ln];
   for(const p of ps){const l=lastBP(p),refs=openRef(p);
     o+='<div class="card"><div class="row"><div class="grow"><h2>'+esc(p.name)+'</h2><p class="small muted">'+(p.sex==="F"?"Woman":"Man")+", "+p.age+" years"+(p.preg?", pregnant":"")+"</p></div>"+
       (alive(p)&&canVisit()?'<button class="pri" data-act="visit" data-id="'+p.id+'">Start visit</button>':"")+'<button data-pid="'+p.id+'">Health record</button></div>'+
-      (p.death?'<p><span class="chip bad">Died '+fmtD(p.death.d)+"</span></p>":p.out?'<p><span class="chip">Moved away</span></p>':'<div class="row">'+chip(htnLabel(p))+chip(dmLabel(p))+(refs.length?chip(["Referral open since "+fmtD(refs[0].d),"warn"]):"")+(atRisk(p)&&!raisedOnce(p)&&!screenPos(p)?chip(["Raised diabetes risk","warn"]):"")+"</div>"+(l?"<p class='small'>Last reading "+bpTxt(l)+" on "+fmtD(l.d)+"</p>":""))+"</div>";}
+      (p.death?'<p><span class="chip bad">Died '+fmtD(p.death.d)+"</span></p>":p.out?'<p><span class="chip">Moved away</span></p>':'<div class="row">'+chip(htnLabel(p))+chip(dmLabel(p))+(refs.length?chip(["Referral open since "+fmtD(refs[0].d),"warn"]):"")+(atRisk(p)&&!raisedOnce(p)&&!screenPos(p)?chip(["Raised diabetes risk (score "+riskScore(p).toFixed(1)+")","warn"]):"")+"</div>"+(l?"<p class='small'>Last reading "+bpTxt(l)+" on "+fmtD(l.d)+"</p>":""))+"</div>";}
   if(canVisit())o+='<div class="card"><h3>Add an adult to this household</h3><div class="row"><input id="a_name" placeholder="Name" class="grow"><select id="a_sex"><option value="F">Woman</option><option value="M">Man</option></select><input id="a_age" type="number" placeholder="Age" style="width:90px"><button data-act="addp">Add</button></div></div>';
   return o;}
 
@@ -640,9 +643,10 @@ function vReports(){const ids=scope(),c=calc(ids),T=CFG.targets,r1=x=>x==null?""
 function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
   return "<h1>Workers</h1><div class='card'>"+tbl(["Role","Name","Covers"],[...g("prom").map(w=>"<tr><td>Promoter (CHO)</td><td>"+esc(w.name)+"</td><td>"+g("lnt").filter(t=>t.prom===w.id).length+" Trainers</td></tr>"),...g("clinic").map(w=>"<tr><td>Clinic</td><td>"+esc(w.name)+"</td><td>All referrals</td></tr>"),...g("lnt").map(w=>"<tr><td>Leader Neighbor Trainer</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+lnsOf(w).length+" Leader Neighbors</td></tr>"),...g("ln").map(w=>"<tr><td>Leader Neighbor</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+(IX.lnH[w.id]||[]).length+" households, "+(IX.lnH[w.id]||[]).filter(hhMonthly).length+" on monthly visits</td></tr>")])+"</div>";}
 function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='n'>"+v+"</td></tr>";
-  return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("Draft diabetes-risk score that counts as raised",CFG.riskFlag+" of 5"),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
+  return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("African Diabetes Risk Score that counts as raised","above "+CFG.adrs.cut),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.5, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  "<div class='card'><h3>Diabetes-risk flag</h3><div class='row'><label>African Diabetes Risk Score counted as raised when above "+num("a.cut",CFG.adrs.cut,"",90)+"</label></div><p class='small muted'>The score uses age, waist and hypertension (Mayige 2014; derived in Tanzania, Senegal and Guinea). An adult aged 35 or older with a raised score moves to monthly visits. The cut-off of 1.46 was published for South Africa and has not been checked in Ghana. A higher cut-off flags fewer people. Every adult aged 35 or older has the fingerstick test whatever the score.</p></div>"+
+  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.6, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
@@ -680,6 +684,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("button,[data-pi
 document.addEventListener("input",e=>{const el=e.target,d=el.dataset;
   if(d.n&&UI.F&&UI.mode==="visit"){setPath(UI.F,d.n,el.value);const st=visitState();$("#dyn").innerHTML=dynHtml(st);const r3=$("#r2");if(r3)r3.hidden=!st.a.need3;const pg=$("#pages");if(pg){const now=st.pages.join();if(pg.dataset.k!==now){pg.dataset.k=now;pg.innerHTML=st.pages.map(pageHtml).join("");$("#commit").innerHTML=commitHtml(st);}}return;}
   if(d.n&&d.n.startsWith("m.")){CFG.model[d.n.slice(2)]=+el.value||0;return;}
+  if(d.n==="a.cut"){if(+el.value>0)CFG.adrs.cut=+el.value;return;}
   if(d.n&&UI.F){UI.F[d.n]=el.value;return;}
   if(d.t&&UI.F){UI.F[d.t]=el.value;return;}
   if(d.c&&UI.F){UI.F[d.c]=el.checked;UI.keep=true;return render();}
