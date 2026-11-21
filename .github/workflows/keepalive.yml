@@ -1,0 +1,24 @@
+# Keeps the Supabase database of this app from being paused for inactivity (Free Plan projects
+# are paused after about 7 days without database activity). Every 3 days it makes one small read.
+# Run it by hand from the Actions tab with "Run workflow".
+name: Keep the database awake
+on:
+  schedule:
+    - cron: "41 4 */3 * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Call the database
+        run: |
+          # The address and publishable key are the public values in src/live.js (the same values every visitor's browser receives).
+          URL=$(grep -oE 'url:"https://[^"]+"' src/live.js | head -1 | cut -d'"' -f2)
+          KEY=$(grep -oE 'key:"sb_[^"]+"' src/live.js | head -1 | cut -d'"' -f2)
+          if [ -z "$URL" ]; then echo "No server address in src/live.js yet: nothing to keep awake."; exit 0; fi
+          code=$(curl -s -o out.txt -w "%{http_code}" -X POST "$URL/rest/v1/rpc/cmd_ping" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}')
+          echo "cmd_ping: HTTP $code $(cat out.txt)"
+          if [ "$code" != "200" ]; then echo "The database did not answer. If the project is paused, resume it in the Supabase dashboard."; exit 1; fi

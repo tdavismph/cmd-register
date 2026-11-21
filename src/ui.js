@@ -24,13 +24,13 @@ const ic=k=>'<svg viewBox="0 0 120 120" width="96" height="96" fill="none" strok
 /* ---------- screen state ---------- */
 const UI={who:"adm",tab:null,hh:null,pid:null,F:null,mode:null,area:"all",q:"",all:false,note:null};
 const me=()=>IX.w[UI.who];
-const TABS={ln:[["today","Today"],["hhs","Households"],["group","Group lesson"],["reports","My results"],["pages","Counselling pages"]],
-  lnt:[["coach","My Care Group"],["refs","Referrals"],["hhs","Households"],["reports","Results"],["pages","Counselling pages"]],
-  prom:[["screen","Screening day"],["recheck","BP re-checks"],["refs","Referrals"],["coach","Quality"],["reports","Reports"],["compare","Care Groups compared"],["pages","Counselling pages"]],
-  clinic:[["refs","Referrals"],["patients","Patients"],["reports","Reports"],["pages","Counselling pages"]],
+const TABS={ln:[["today","Today"],["hhs","Households"],["group","Group lesson"],["reports","My results"],["pages","Counselling pages"],["account","Account"]],
+  lnt:[["coach","My Care Group"],["refs","Referrals"],["hhs","Households"],["reports","Results"],["pages","Counselling pages"],["account","Account"]],
+  prom:[["screen","Screening day"],["recheck","BP re-checks"],["refs","Referrals"],["coach","Quality"],["reports","Reports"],["compare","Care Groups compared"],["pages","Counselling pages"],["account","Account"]],
+  clinic:[["refs","Referrals"],["patients","Patients"],["reports","Reports"],["pages","Counselling pages"],["account","Account"]],
   admin:[["reports","Reports"],["compare","Care Groups compared"],["refs","Referrals"],["workers","Workers"],["settings","Settings"],["pages","Counselling pages"]]};
 const ROLE={admin:"Administrator",clinic:"Clinic",prom:"Promoter (CHO)",lnt:"Leader Neighbor Trainer",ln:"Leader Neighbor"};
-const lnsOf=w=>w.role==="ln"?[w.id]:w.role==="lnt"?S.w.filter(x=>x.lnt===w.id).map(x=>x.id):S.w.filter(x=>x.role==="ln").map(x=>x.id);
+const lnsOf=w=>w.role==="ln"?[w.id]:w.role==="lnt"?S.w.filter(x=>x.lnt===w.id).map(x=>x.id):w.role==="prom"&&live()?S.w.filter(x=>x.role==="ln"&&(IX.w[x.lnt]||{}).prom===w.id).map(x=>x.id):S.w.filter(x=>x.role==="ln").map(x=>x.id); // live: a Promoter sees only her Trainers' Care Groups, as on the server
 function scope(){const w=me();let ids=lnsOf(w);if(UI.area!=="all"){if(UI.area.startsWith("cg"))ids=ids.filter(i=>IX.w[i].cg===+UI.area.slice(2));else if(ids.includes(UI.area))ids=[UI.area];}return new Set(ids);}
 const canVisit=()=>["ln","lnt"].includes(me().role);
 
@@ -53,7 +53,7 @@ function tasks(lnId){const out=[];
     const refs=ps.flatMap(openRef),urgent=refs.filter(r=>r.urg<3||diff(TODAY,r.d)>14);
     if(urgent.length)out.push({p:1,h,t:"Follow up a referral",why:urgent.map(r=>IX.p[r.p].name+": "+REASON[r.code]+", referred "+fmtD(r.d)).join("; ")});
     const monthly=hhMonthly(h);
-    if(monthly&&mIdx(h.last)!==CUR){const why=[];let pr=2,first=0;
+    if(monthly&&(!h.last||mIdx(h.last)!==CUR)){const why=[];let pr=2,first=0;
       for(const p of ps){const l=lastBP(p),lv=S.v.filter(v=>v.p===p.id).pop();
         const st=[p.htn,p.dm].filter(c=>c.rx&&c.rxStart&&diff(TODAY,c.rxStart)<=60&&!(lv&&lv.d>=c.rxStart)).map(c=>c.rxStart).sort()[0];
         if(st){why.push(p.name+": first visit since treatment started on "+fmtD(st));pr=1;first=1;}
@@ -63,7 +63,7 @@ function tasks(lnId){const out=[];
         else if(l&&(l.s>=160||l.di>=100)){why.push(p.name+": last reading "+bpTxt(l));pr=1;}
         else if(isPatient(p))why.push(p.name+": monthly visit");}
       out.push({p:pr,h,first,t:"Monthly home visit",why:why.join("; ")||"Household with a person at risk"});}
-    else if(!monthly&&diff(TODAY,h.last)>=CFG.recheck)out.push({p:3,h,t:"Screening visit",why:"Last visit "+fmtD(h.last)+". Check every adult aged 35 or older."});}
+    else if(!monthly&&(!h.last||diff(TODAY,h.last)>=CFG.recheck))out.push({p:3,h,t:"Screening visit",why:(h.last?"Last visit "+fmtD(h.last):"Not yet visited")+". Check every adult aged 35 or older."});}
   return out.sort((a,b)=>a.p-b.p||(b.first||0)-(a.first||0)||(a.h.last<b.h.last?-1:1));}
 const half=()=>diff(TODAY,mStart(CUR))<15?"first half of the month: group lesson":"second half of the month: home visits";
 
@@ -80,14 +80,14 @@ function vToday(){const w=me(),ts=tasks(w.id),gm=S.gm.find(g=>g.ln===w.id&&g.m==
 
 function vHhs(){const ids=scope(),ql=UI.q.toLowerCase();let hs=S.hh.filter(h=>ids.has(h.ln));
   if(ql)hs=hs.filter(h=>(h.head+" "+h.no+" "+(IX.hhP[h.id]||[]).map(p=>p.name).join(" ")).toLowerCase().includes(ql));
-  let h="<h1>Households</h1>"+areaSel()+'<input id="q" placeholder="Search by name or house number" value="'+esc(UI.q)+'">';
+  let h='<div class="row"><h1 class="grow">Households</h1>'+(canVisit()?'<button class="pri" data-act="addhh">Add a household</button>':"")+"</div>"+areaSel()+'<input id="q" placeholder="Search by name or house number" value="'+esc(UI.q)+'">';
   const rows=hs.slice(0,UI.all?999:40).map(x=>{const ps=(IX.hhP[x.id]||[]).filter(alive),m=hhMonthly(x);
     return '<tr><td><button class="link" data-hh="'+x.id+'">'+esc(x.head)+'</button><div class="small muted">'+esc(x.no)+"</div></td><td>"+chip(m?["Monthly","info"]:["Screening","good"])+"</td><td>"+ps.filter(isPatient).length+" / "+ps.length+"</td><td>"+fmtD(x.last)+"</td></tr>";});
   h+='<div class="card">'+tbl(["Household","Visits","Patients / adults","Last visit"],rows)+(hs.length>40&&!UI.all?'<button data-act="all">Show all '+hs.length+"</button>":"")+"</div>";return h;}
 
 function vHh(){const h=IX.hh[UI.hh],ps=IX.hhP[h.id]||[],ln=IX.w[h.ln];
   let o='<button class="link" data-act="back">‹ Back</button><h1>'+esc(h.head)+' <span class="muted small">'+esc(h.no)+"</span></h1>";
-  o+="<p class='muted'>Leader Neighbor: "+esc(ln.name)+". "+(hhMonthly(h)?"Monthly group lesson and home visit.":"Screening visit about three times a year.")+" Last visit "+fmtD(h.last)+". NHIS "+(h.nhis?"active":"not active or not known")+".</p>";
+  o+="<p class='muted'>Leader Neighbor: "+esc(ln.name)+". "+(hhMonthly(h)?"Monthly group lesson and home visit.":"Screening visit about three times a year.")+(h.last?" Last visit "+fmtD(h.last)+".":" Not yet visited.")+" NHIS "+(h.nhis?"active":"not active or not known")+".</p>";
   if(UI.note){o+='<div class="note '+(UI.note[1]||"")+'">'+esc(UI.note[0])+"</div>";UI.note=null;}
   for(const p of ps){const l=lastBP(p),refs=openRef(p);
     o+='<div class="card"><div class="row"><div class="grow"><h2>'+esc(p.name)+'</h2><p class="small muted">'+(p.sex==="F"?"Woman":"Man")+", "+p.age+" years"+(p.preg?", pregnant":"")+"</p></div>"+
@@ -233,7 +233,7 @@ function vGroup(){const w=me(),L=LESSONS[CUR],gm=S.gm.find(g=>g.ln===w.id&&g.m==
 
 /* ---------- lists for Promoters and the clinic ---------- */
 function areaSel(){const w=me();if(w.role==="ln")return"";const ids=lnsOf(w);let o='<div class="row"><label>Area <select id="area"><option value="all">All</option>';
-  if(w.role!=="lnt")for(let c=1;c<=7;c++)o+='<option value="cg'+c+'"'+(UI.area==="cg"+c?" selected":"")+">Care Group "+c+"</option>";
+  if(w.role!=="lnt")for(const c of [...new Set(S.w.filter(x=>x.role==="lnt"&&(w.role!=="prom"||x.prom===w.id)).map(x=>x.cg))].sort((a,b)=>a-b))o+='<option value="cg'+c+'"'+(UI.area==="cg"+c?" selected":"")+">Care Group "+c+"</option>";
   else for(const i of ids)o+='<option value="'+i+'"'+(UI.area===i?" selected":"")+">"+esc(IX.w[i].name)+"</option>";return o+"</select></label></div>";}
 const inScope=()=>{const ids=scope();return S.p.filter(p=>ids.has(IX.hh[p.hh].ln)&&alive(p));};
 function vScreen(){const ps=inScope().filter(p=>p.age>=35&&!p.dm.dx&&!fingers(p).length);
@@ -278,8 +278,8 @@ function calc(ids){const P=S.p.filter(p=>ids.has(IX.hh[p.hh].ln)),A=P.filter(p=>
   o.deaths=P.filter(p=>p.death&&p.age>=35);o.deathsDx=o.deaths.filter(p=>isPatient(p)).length;o.ev=S.ev.filter(e=>pid.has(e.p));
   o.visits=V.filter(v=>v.kind!=="prom").length;o.gm=S.gm.filter(g=>ids.has(g.ln));return o;}
 function vReports(){const ids=scope(),c=calc(ids),T=CFG.targets,r1=x=>x==null?"":x.toFixed(1);
-  let o="<h1>"+(me().role==="ln"?"My results":"Reports")+"</h1>"+areaSel()+"<p class='muted'>Month "+(CUR+1)+" of 12. "+c.hh+" households, "+c.adults+" adults on the register, "+c.A+" aged 35 or older. Example data.</p>";
-  o+='<div class="grid"><div class="card"><h3>Adults 35+ screened for BP</h3><div class="big">'+pct(c.screened,c.A)+'%</div></div><div class="card"><h3>On BP treatment and controlled</h3><div class="big">'+(pct(c.ctrl,c.cd)??0)+'%</div><p class="small muted">'+c.ctrl+" of "+c.cd+'</p></div><div class="card"><h3>Fall in average upper reading</h3><div class="big">'+r1(c.drop)+'</div><p class="small muted">mmHg, '+c.two+' people on treatment with readings two months apart</p></div><div class="card"><h3>Open referrals</h3><div class="big">'+c.ref.reduce((a,x)=>a+x.open,0)+"</div></div></div>";
+  let o="<h1>"+(me().role==="ln"?"My results":"Reports")+"</h1>"+areaSel()+"<p class='muted'>Month "+(CUR+1)+" of 12. "+c.hh+" households, "+c.adults+" adults on the register, "+c.A+" aged 35 or older."+(live()?"":" Example data.")+"</p>";
+  o+='<div class="grid"><div class="card"><h3>Adults 35+ screened for BP</h3><div class="big">'+(pct(c.screened,c.A)??0)+'%</div></div><div class="card"><h3>On BP treatment and controlled</h3><div class="big">'+(pct(c.ctrl,c.cd)??0)+'%</div><p class="small muted">'+c.ctrl+" of "+c.cd+'</p></div><div class="card"><h3>Fall in average upper reading</h3><div class="big">'+r1(c.drop)+'</div><p class="small muted">mmHg, '+c.two+' people on treatment with readings two months apart</p></div><div class="card"><h3>Open referrals</h3><div class="big">'+c.ref.reduce((a,x)=>a+x.open,0)+"</div></div></div>";
   o+='<h2 class="rep">1. Hypertension: from screening to control</h2><div class="card"><div class="tblwrap"><table>'+barHead+bar("Adults aged 35 or older screened for blood pressure",c.screened,c.A,T.screened)+bar("Screened on two or more days",c.twice,c.A,0)+bar("People with hypertension who know their status",c.aware,c.hyp,T.aware,"Diagnosed, out of those diagnosed or raised on two days")+bar("Found by the project and now on treatment",c.linked,c.found,T.linked,"Not diagnosed at the census")+bar("On treatment and taking the medicine every day",c.adh,c.asked,T.adherent,"Answer at the last home visit")+bar("On treatment three months or more with BP below 140/90",c.ctrl,c.cd,T.controlled,"Latest reading")+"</table></div><p class='small muted'>"+c.hyp+" adults have hypertension by the register's definition. "+c.pend+" more had one raised reading and wait for a re-check. The black mark on each bar is the project's target.</p></div>";
   o+='<h2 class="rep">2. Diabetes: from testing to control</h2><div class="card"><div class="tblwrap"><table>'+barHead+bar("Adults aged 35 or older tested for blood sugar",c.tested,c.A,T.tested,"Fingerstick by a Promoter, or already diagnosed")+bar("Found by the project and now on treatment",c.dlinked,c.dfound,T.dmLinked,"Screen raised or newly confirmed, out of those not diagnosed at the census")+bar("On treatment with the latest laboratory result at target",c.goal,c.gd,0,"HbA1c below "+CFG.glu.a1cGoal+"% or fasting glucose below "+CFG.glu.fastGoal.toFixed(1)+" mmol/L, tested three months or more after starting")+"</table></div><p class='small muted'>"+c.dm+" adults have diagnosed diabetes; "+c.drx+" are on treatment. "+c.pos+" have a raised screening result and wait for the laboratory test. Few people on treatment have had a follow-up laboratory test, so the last row rests on small numbers.</p></div>";
   o+='<h2 class="rep">3. Blood pressure change and modelled events averted</h2><div class="card">'+tbl(["Measure","#Value"],["<tr><td>People on treatment with readings at least two months apart</td><td class='n'>"+c.two+"</td></tr>","<tr><td>Average upper reading, first reading on the register</td><td class='n'>"+r1(c.s0)+"</td></tr>","<tr><td>Average upper reading, latest</td><td class='n'>"+r1(c.s1)+"</td></tr>","<tr><td>Fall (mmHg)</td><td class='n'><b>"+r1(c.drop)+"</b></td></tr>","<tr><td>Modelled major cardiovascular events averted so far (stroke, heart attack, heart failure)</td><td class='n'><b>"+r1(c.cvd[1])+"</b> ("+r1(c.cvd[0])+" to "+r1(c.cvd[2])+")</td></tr>","<tr><td>Modelled deaths averted so far</td><td class='n'><b>"+r1(c.dth[1])+"</b> ("+r1(c.dth[0])+" to "+r1(c.dth[2])+")</td></tr>"])+"<p class='small muted'>The last two rows are modelled, not measured. They apply the trial result that each 10 mmHg fall in the upper reading lowers major cardiovascular events by 20% and deaths by 13% (Ettehad and others, Lancet 2016) to "+r1(c.py)+" person-years on treatment. The yearly rates without the fall ("+CFG.model.cvdRate+"% for events, "+CFG.model.deathRate+"% for deaths) are planning assumptions set in Settings. The fall also includes the tendency of a first high reading to be lower when repeated, so a comparison area is needed to attribute it to the project.</p></div>";
@@ -314,20 +314,20 @@ function vCompare(){const T=CFG.targets,cgs=S.w.filter(w=>w.role==="lnt").sort((
     o+='<div class="card"><div class="row"><h2 class="grow">'+esc(label)+"</h2>"+(target?'<span class="chip">Target '+target+"%</span>":"")+(isScore?"":'<span class="chip info">All: '+pct(sum[0],sum[1])+"%</span>")+'</div><div class="tblwrap"><table>'+v.map(z=>{const bad=z.p!=null&&(target?z.p<target:z.p===lo);
       return "<tr><td>Care Group "+z.x.t.cg+'<div class="small muted">'+esc(z.x.t.name)+'</div></td><td style="width:55%"><div class="meter" style="height:16px"><i style="width:'+(z.p||0)+"%;background:var(--"+(bad?"bad":"accent")+')"></i>'+(target?'<b style="left:'+target+'%"></b>':"")+"</div></td><td class='n'><b>"+(z.p==null?"–":z.p+"%")+"</b></td><td class='n small muted'>"+(isScore?"":z.n+" of "+z.d)+"</td></tr>";}).join("")+"</table></div></div>";}
   return o;}
-function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
+function vWorkers(){if(live())return vWorkersLive();const g=r=>S.w.filter(w=>w.role===r);
   return "<h1>Workers</h1><div class='card'>"+tbl(["Role","Name","Covers"],[...g("prom").map(w=>"<tr><td>Promoter (CHO)</td><td>"+esc(w.name)+"</td><td>"+g("lnt").filter(t=>t.prom===w.id).length+" Trainers</td></tr>"),...g("clinic").map(w=>"<tr><td>Clinic</td><td>"+esc(w.name)+"</td><td>All referrals</td></tr>"),...g("lnt").map(w=>"<tr><td>Leader Neighbor Trainer</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+lnsOf(w).length+" Leader Neighbors</td></tr>"),...g("ln").map(w=>"<tr><td>Leader Neighbor</td><td>"+esc(w.name)+"</td><td>Care Group "+w.cg+": "+(IX.lnH[w.id]||[]).length+" households, "+(IX.lnH[w.id]||[]).filter(hhMonthly).length+" on monthly visits</td></tr>")])+"</div>";}
 function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='n'>"+v+"</td></tr>";
   return "<h1>Settings</h1><div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("African Diabetes Risk Score that counts as raised","above "+CFG.adrs.cut),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
   "<div class='card'><h3>Diabetes-risk flag</h3><div class='row'><label>African Diabetes Risk Score counted as raised when above "+num("a.cut",CFG.adrs.cut,"",90)+"</label></div><p class='small muted'>The score uses age, waist and hypertension (Mayige 2014; derived in Tanzania, Senegal and Guinea). An adult aged 35 or older with a raised score moves to monthly visits. The published cut-off for South Africa is 1.46. The project uses 3.5, so that each Leader Neighbor's monthly cohort stays near 12 people; neither value has been checked in Ghana. A higher cut-off flags fewer people. Every adult aged 35 or older has the fingerstick test whatever the score.</p></div>"+
-  "<div class='card'><h3>Data</h3><p class='small muted'>Build 0.15, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>";}
+  (live()?startCard()+liveCard():"<div class='card'><h3>Data</h3><p class='small muted'>Build 0.16, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>");}
 
 /* ---------- frame ---------- */
-function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
-  $("#who").textContent=ROLE[w.role]+(w.role==="admin"?"":": "+w.name)+" · example data";
+function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role].filter(t=>t[0]!=="account"||live());if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
+  $("#who").textContent=ROLE[w.role]+(w.role==="admin"?"":": "+w.name)+(live()?"":" · example data");
   $("#nav").innerHTML=tabs.map(t=>'<button class="tab'+(t[0]===UI.tab&&!UI.mode?" on":"")+'" data-tab="'+t[0]+'">'+t[1]+"</button>").join("");
-  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings,pages:vPages,compare:vCompare};
-  const M={hh:vHh,person:vPerson,visit:vVisit,clinic:vClinic,event:vEvent,qivc:vQivc};
+  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings,pages:vPages,compare:vCompare,account:vAccount};
+  const M={hh:vHh,person:vPerson,visit:vVisit,clinic:vClinic,event:vEvent,qivc:vQivc,addhh:vAddHh};
   $("#app").innerHTML=(UI.mode?M[UI.mode]:V[UI.tab])();if(UI.keep){window.scrollTo(0,y);UI.keep=false;}else window.scrollTo(0,0);}
 function roleSel(){const g=(r,l)=>'<optgroup label="'+l+'">'+S.w.filter(w=>w.role===r).map(w=>'<option value="'+w.id+'">'+esc(r==="admin"?"Administrator":r==="clinic"?"Clinic":w.name+(w.cg?" (Care Group "+w.cg+")":""))+"</option>").join("")+"</optgroup>";
   $("#role").innerHTML=g("admin","Administrator")+g("prom","Promoters (CHO)")+g("clinic","Clinic")+g("lnt","Leader Neighbor Trainers")+g("ln","Leader Neighbors");$("#role").value=UI.who;}
@@ -357,7 +357,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("button,[data-pi
   if(A==="saveqivc"){const F=UI.F,its=QIV[F.kind].items;if(its.some(i=>F.a[i[0]]==null)){F.tried=true;return render();}const sc=qScore(F.a);
     S.q.push({id:uid("q"),wid:F.wid,kind:F.kind,by:UI.who,d:TODAY,a:F.a,r:F.r,score:sc.score,note:F.note});UI.note=[QIV[F.kind].name+" checklist saved for "+IX.w[F.wid].name+": "+sc.score+"%."];UI.F=null;UI.mode=null;UI.tab="coach";return render();}
   if(A==="savegroup"){const w=me(),hs=(IX.lnH[w.id]||[]).filter(hhMonthly),n=hs.flatMap(h=>IX.hhP[h.id].filter(p=>alive(p)&&(isPatient(p)||atRisk(p)))).length;S.gm.push({id:uid("g"),ln:w.id,m:CUR,d:TODAY,lesson:CUR,att:UI.G.att.length,cohort:n,who:UI.G.att.slice()});UI.G=null;return render();}
-  if(A==="addp"){const name=$("#a_name").value.trim(),age=+$("#a_age").value;if(!name||!(age>=18&&age<=110))return;const p={id:"p"+(S.p.length+1),hh:UI.hh,name,sex:$("#a_sex").value,age,bp:[],glu:[],htn:{},dm:{},meds:[]};S.p.push(p);index();UI.keep=true;return render();}});
+  if(A==="addp"){const name=$("#a_name").value.trim(),age=+$("#a_age").value;if(!name||!(age>=18&&age<=110))return;const p={id:uid("p"),hh:UI.hh,name,sex:$("#a_sex").value,age,bp:[],glu:[],htn:{},dm:{},meds:[]};S.p.push(p);index();UI.keep=true;return render();}});
 document.addEventListener("input",e=>{const el=e.target,d=el.dataset;
   if(d.n&&UI.F&&UI.mode==="visit"){setPath(UI.F,d.n,el.value);const st=visitState();$("#dyn").innerHTML=dynHtml(st);const r3=$("#r2");if(r3)r3.hidden=!st.a.need3;const pg=$("#pages");if(pg){const now=st.pages.join();if(pg.dataset.k!==now){pg.dataset.k=now;pg.innerHTML=st.pages.map(pageHtml).join("");$("#commit").innerHTML=commitHtml(st);}}return;}
   if(d.n&&d.n.startsWith("m.")){CFG.model[d.n.slice(2)]=+el.value||0;return;}
@@ -370,5 +370,4 @@ document.addEventListener("change",e=>{const el=e.target;
   if(el.dataset.qr&&UI.F){UI.F.r[el.dataset.qr]=+el.value||null;return;}
   if(el.id==="role"){UI.who=el.value;UI.tab=null;UI.mode=null;UI.F=null;UI.G=null;UI.area="all";UI.all=false;UI.q="";render();}
   if(el.id==="area"){UI.area=el.value;UI.all=false;UI.keep=true;render();}});
-build();index();roleSel();render();
 try{if("serviceWorker" in navigator&&location.hostname.endsWith("github.io"))navigator.serviceWorker.register("sw.js").catch(()=>{});}catch(e){}

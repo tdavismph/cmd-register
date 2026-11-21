@@ -1,6 +1,6 @@
 "use strict";
 /* CMD Register: home visit register and counselling for hypertension and diabetes.
-   Ghana CBIO+ demonstration (The Salvation Army and IGHA). Example-data build: nothing is sent to a server. */
+   Ghana CBIO+ demonstration (The Salvation Army and IGHA). Example mode keeps everything on the device; live mode (live.js) stores records on the tablet and syncs them with Supabase. */
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -13,7 +13,8 @@ const pct=(n,d)=>d?Math.round(100*n/d):null;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 const fmtD=s=>{if(!s)return"";const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return +s.slice(8,10)+" "+m[+s.slice(5,7)-1]+" "+s.slice(0,4)};
-let SEQ=0;const uid=p=>p+(++SEQ);
+let SEQ=0;var LIVE=false;   // live mode: records go to the server, so ids must not collide between tablets
+const uid=p=>p+(LIVE?"_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7):"")+(++SEQ);
 
 /* ---------- settings ---------- */
 const MLEN=30.4375;
@@ -38,7 +39,9 @@ const CFG={country:"Ghana",
 CFG.census=addD(CFG.start,-75);
 const mIdx=d=>Math.floor(diff(d,CFG.start)/MLEN);            // 0 = first month of home visits
 const mStart=m=>addD(CFG.start,m*MLEN);
-const CUR=clamp(mIdx(TODAY),0,11);
+let CUR=clamp(mIdx(TODAY),0,11);
+/* Live mode: the administrator sets the date home visits started (Settings). */
+function setStart(d){CFG.start=d;CFG.census=addD(d,-75);CUR=clamp(mIdx(TODAY),0,11);}
 
 /* ---------- the 12 monthly group lessons ---------- */
 const LESSONS=[
