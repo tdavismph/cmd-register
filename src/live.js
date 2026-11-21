@@ -4,7 +4,7 @@
    database whenever there is a connection. The server limits each worker to her own records:
    see server/setup.sql. */
 // Public values, safe to publish (the same as the key every visitor's browser receives).
-const SERVER=window.CMD_SERVER||{url:"",key:""};
+const SERVER=window.CMD_SERVER||{url:"https://zxyftmpskbhtjretacig.supabase.co",key:"sb_publishable_aRJWlS41yCDBQLrI_J_HPQ_dqBQZfP5"};
 const TYPES=["hh","p","v","ref","ev","gm","q"];
 const L={mode:null,auth:null,seq:0,meta:{},dirty:{},last:null,msg:"",syncMsg:"",busy:false,welcome:"start"};
 const SNAP=new Map();   // record key -> JSON as last stored, to find records changed on this tablet
