@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.16. The app opens on a welcome screen with two choices:
+Build 0.18. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -21,6 +21,15 @@ Build 0.16. The app opens on a welcome screen with two choices:
 
 The blood pressure and referral rules follow section 4.4 of the demonstration narrative (version 7). The blood-sugar values are the WHO diagnostic values. The counselling text is a draft taken from the Care Group module outline. All of it needs review by clinical staff in Ghana and pre-testing before field use.
 
+### Referral follow-up (from build 0.18)
+
+A referral stays open until the clinic records the person as seen, or a Trainer or a Promoter closes it as **declined** or **seen elsewhere** (self-reported). A Leader Neighbor cannot close a referral.
+
+- A follow-up entry records what has happened (not yet gone; went, but the clinic has not recorded it; went to another facility; will not go), the reasons for not going (several may be chosen), and the action agreed (return visit, companion from the corps, other) with a short note. Every entry is kept.
+- A Leader Neighbor adds an entry from the due-list task or during a home visit, where it is required when the person has an open referral. A Trainer or a Promoter adds one from the Referrals list.
+- After a referral is closed as declined, a raised reading creates no new routine referral for 90 days (`CFG.declineWait`), unless the person says in the visit that he or she is now willing to go. A warning sign, or a reading in the emergency or prompt range, always creates a new referral, whatever happened to an earlier one.
+- Report section 5 separates seen at the Salvation Army facility, seen elsewhere, declined and still open, and lists the reasons given for not going.
+
 ## The server (live mode)
 
 The design is the same as the CBIO+ Home Visit Register's. The app never reads or writes tables directly: every table has Row Level Security switched on with no policies, and the app calls functions (in `server/setup.sql`) that check the worker's session and limit each role to its own records.
@@ -33,7 +42,9 @@ The design is the same as the CBIO+ Home Visit Register's. The app never reads o
 | Clinic | Everything: confirmations, laboratory results, medicines, referrals and events (not households) |
 | Administrator | Everything, plus workers and settings |
 
-When the clinic and a Leader Neighbor change the same person's record before syncing, both sets of blood pressure, blood sugar and habit readings are kept; other fields come from the newer copy.
+When the clinic and a Leader Neighbor change the same person's record before syncing, both sets of blood pressure, blood sugar and habit readings are kept; other fields come from the newer copy. A referral changed on two tablets keeps every follow-up entry from both. On the server, only the clinic or the administrator can mark a referral as seen at the facility, and only a Trainer, a Promoter or the administrator can close one.
+
+A project set up before build 0.18 needs [`server/update-0.18.sql`](server/update-0.18.sql) run once in the SQL Editor. It replaces two functions and changes no table.
 
 ### Setting up (once)
 

@@ -54,9 +54,12 @@ function mergePerson(a,b,bNewer){const o=Object.assign({},bNewer?b:a);
   for(const k of ["bp","glu","hab"]){const seen=new Set(),all=[];for(const e of (a[k]||[]).concat(b[k]||[])){const j=JSON.stringify(e);if(!seen.has(j)){seen.add(j);all.push(e);}}
     if(a[k]||b[k])o[k]=all.sort((x,y)=>(x.d<y.d?-1:x.d>y.d?1:0));}
   return o;}
+/* a referral edited on two devices keeps every follow-up entry, the facility visit and the closure */
+function mergeRef(a,b,bNewer){const o=Object.assign({},bNewer?b:a),seen=new Set(),all=[];for(const e of (a.fu||[]).concat(b.fu||[])){const j=JSON.stringify(e);if(!seen.has(j)){seen.add(j);all.push(e);}}
+  if(all.length)o.fu=all.sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:(x.t||0)-(y.t||0));const s=[a.seen,b.seen].filter(Boolean).sort()[0];if(s)o.seen=s;if(a.closed||b.closed)o.closed=a.closed||b.closed;return o;}
 function applyPulled(recs){let n=0;
   for(const x of recs){const ty=x.ty,b=x.body;if(!TYPES.includes(ty)||!b||!b.id)continue;const k=rk(ty,b.id),arr=S[ty],i=arr.findIndex(r=>r.id===b.id);
-    if(i>=0&&L.dirty[k]){if(ty==="p"){arr[i]=mergePerson(arr[i],b,(x.u||0)>(L.meta[k]||0));SNAP.set(k,"");}continue;}   // local changes not yet sent win; a person record keeps both sets of readings
+    if(i>=0&&L.dirty[k]){if(ty==="p"){arr[i]=mergePerson(arr[i],b,(x.u||0)>(L.meta[k]||0));SNAP.set(k,"");}else if(ty==="ref"){arr[i]=mergeRef(arr[i],b,(x.u||0)>(L.meta[k]||0));SNAP.set(k,"");}continue;}   // local changes not yet sent win; a person record keeps both sets of readings
     if(i>=0)arr[i]=b;else arr.push(b);SNAP.set(k,JSON.stringify(b));L.meta[k]=x.u||0;n++;}
   return n;}
 async function sync(){if(!live()||L.busy||!L.auth||!L.auth.token)return;if(!navigator.onLine){L.syncMsg="Offline. "+Object.keys(L.dirty).length+" changes waiting.";return hdr();}

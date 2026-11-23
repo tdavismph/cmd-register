@@ -21,7 +21,8 @@ const MLEN=30.4375;
 const CFG={country:"Ghana",
   // The example programme is in its 8th month of home visits, in the second half of the month.
   start:addD(TODAY,-236),
-  noRefer:30,               // days: no new routine referral for a person seen at the facility this recently
+  noRefer:30,
+  declineWait:90,           // days: no new routine referral after a referral is closed as declined, unless the person is now willing (project decision, 23 Nov 2026)               // days: no new routine referral for a person seen at the facility this recently
   recheck:120,              // days: adults 35+ with a normal reading, and households with no patient (3 visits a year)
   // Blood pressure rules: section 4.4 of the demonstration narrative (version 7).
   bp:{hi:[140,90],prompt:[180,110],pregEmerg:[160,110]},
@@ -124,7 +125,19 @@ function dmLabel(p){if(p.dm.dx)return p.dm.rx?["On diabetes treatment","info"]:[
   if(screenPos(p))return["Sugar screen raised: needs clinic test","bad"];if(fingers(p).length||labs(p).length)return["Sugar normal","good"];return p.age>=35?["Sugar not tested","warn"]:null;}
 /* Date the person was last seen at the facility, if within CFG.noRefer days before `on`. */
 function seenRecently(p,on){on=on||TODAY;const ds=S.ref.filter(r=>r.p===p.id&&r.seen).map(r=>r.seen).concat((p.bp||[]).filter(r=>r.src==="clinic").map(r=>r.d),(p.glu||[]).filter(g=>g.by==="cl").map(g=>g.d)).filter(d=>d<=on&&diff(on,d)<=CFG.noRefer).sort();return ds.pop()||null;}
-const openRef=p=>S.ref.filter(r=>r.p===p.id&&!r.seen);
+/* Referral follow-up. A referral stays open until the clinic records the person as seen (r.seen),
+   or a Trainer or Promoter closes it (r.closed={d,by,how,note}). r.fu is the history of follow-up entries. */
+const FUST={not:"Not yet gone",went:"Went, but the clinic has not recorded it",other:"Went to another facility",wont:"Will not go"};
+const FUWHY={cost:"Cost of the visit, tests or medicines",transport:"Transport or distance",time:"No time (work, or caring for others)",well:"Feels well",fear:"Fear of the result or of the facility",
+  nhis:"NHIS not active",herbs:"Prefers herbs or prayer",wait:"Long waits or poor treatment at the facility",family:"A family member does not agree",forgot:"Forgot, or did not understand the referral",other:"Other"};
+const FUACT={ret:"Return visit",comp:"Companion from the corps",other:"Other"};
+const CLOSED={declined:"Declined",elsewhere:"Seen elsewhere"};
+const FUPAGE={well:"m_well",herbs:"m_herbs"};
+const refOpen=r=>!r.seen&&!r.closed;
+const lastFu=r=>r.fu&&r.fu.length?r.fu[r.fu.length-1]:null;
+const openRef=p=>S.ref.filter(r=>r.p===p.id&&refOpen(r));
+/* Date a referral for this person was closed as declined, if within CFG.declineWait days before `on`. */
+function declinedRecently(p,on){on=on||TODAY;return S.ref.filter(r=>r.p===p.id&&r.closed&&r.closed.how==="declined"&&r.closed.d<=on&&diff(on,r.closed.d)<=CFG.declineWait).map(r=>r.closed.d).sort().pop()||null;}
 /* What to do with a reading (narrative 4.4). warn = list of warning signs present. */
 function decide(p,s,d,warn,preg,medNo,on){on=on||TODAY;
   const hi=s>=140||d>=90;
@@ -134,10 +147,12 @@ function decide(p,s,d,warn,preg,medNo,on){on=on||TODAY;
   if(s>=180||d>=110)return{urg:2,code:"prompt",t:"Refer promptly. 180 over 110 or more with no warning sign: to be seen at the facility within days. Tell the Promoter today.",refer:1};
   const seen=seenRecently(p,on);
   if(seen&&((p.htn.dx&&(hi||medNo))||(!p.htn.dx&&hi&&p.bp.some(r=>elev(r)&&r.d!==on))))return{urg:0,code:"recent",t:(hi?"The reading is raised":"The medicine is not being taken")+", but the person was seen at the facility on "+fmtD(seen)+". No new referral within "+CFG.noRefer+" days. Counsel today and check again at the next visit."};
-  if(p.htn.dx&&(hi||medNo))return{urg:3,code:"relink",t:"Refer back to the facility. "+(hi?"The reading is raised":"The medicine is not being taken")+" in a person already diagnosed. No second reading is needed.",refer:1};
+  // After a referral closed as declined: no new routine referral for CFG.declineWait days, unless the person is now willing (asked in the visit).
+  const dcl=!S.ref.some(r=>r.p===p.id&&refOpen(r))&&declinedRecently(p,on),hold=r=>dcl?{urg:0,code:"declined",was:r.code,t:"This person declined a referral on "+fmtD(dcl)+". No new routine referral within "+CFG.declineWait+" days of that date, unless the person is now willing to go. Counsel today, and ask."}:r;
+  if(p.htn.dx&&(hi||medNo))return hold({urg:3,code:"relink",t:"Refer back to the facility. "+(hi?"The reading is raised":"The medicine is not being taken")+" in a person already diagnosed. No second reading is needed.",refer:1});
   if(s==null)return null;
   if(!p.htn.dx&&hi){const before=p.bp.some(r=>elev(r)&&r.d!==on);
-    return before?{urg:3,code:"confirm",t:"Refer to the facility for confirmation and treatment. The reading is raised on a second day.",refer:1}:{urg:0,code:"recheck",t:"Raised today. One reading does not show a condition. Check again at the next visit, within one month."};}
+    return before?hold({urg:3,code:"confirm",t:"Refer to the facility for confirmation and treatment. The reading is raised on a second day.",refer:1}):{urg:0,code:"recheck",t:"Raised today. One reading does not show a condition. Check again at the next visit, within one month."};}
   return{urg:0,code:"ok",t:"Below 140 over 90. Praise the person."+(p.htn.dx?" Continue the medicine.":" Check again in about four months.")};}
 const REASON={emerg:"Emergency",preg:"Raised BP in pregnancy",prompt:"BP 180/110 or more",relink:"Back to care (diagnosed)",confirm:"BP raised twice: confirm",glu:"Sugar screen raised: confirm",side:"Medicine side effects",feet:"Foot sore"};
 
@@ -179,7 +194,7 @@ function build(){
   const taking=p=>p._t.tk!==false;
   const read=(p,d)=>{let s=p._t.s,di=p._t.d;if(p.htn.rx&&taking(p)){const ramp=clamp(diff(d,p.htn.rxStart)/60,0.2,1);s-=p._t.eff*ramp;di-=p._t.eff*.5*ramp;}
     return{s:Math.round(s+N(0,6)),d:Math.round(di+N(0,4))};};
-  function refer(p,d,by,code,urg){if(S.ref.some(r=>r.p===p.id&&!r.seen))return;const r={id:uid("r"),p:p.id,d,by,code,urg};S.ref.push(r);
+  function refer(p,d,by,code,urg){if(S.ref.some(r=>r.p===p.id&&refOpen(r)))return;const r={id:uid("r"),p:p.id,d,by,code,urg};S.ref.push(r);
     const u=R(),delay=urg===1?(u<.95?R()*1.2:null):urg===2?(u<.85?1+R()*5:null):(u<.6?4+R()*22:null);if(delay==null)return;const seen=addD(d,delay);if(seen>TODAY)return;
     r.seen=seen;clinic(p,seen,code);}
   function clinic(p,d,code){pushBP(p,d,"cl","clinic");
@@ -253,5 +268,17 @@ function build(){
     {id:uid("v"),d:d1,hh:vh.id,p:"pAdwoa",by:"l20",kind:"screen",warn:[],pages:["k_salt"],s:126,di:78,act:"ok",commit:PAGES.k_salt[4][1]},
     {id:uid("v"),d:d2,hh:vh.id,p:"pYaw",by:"l20",kind:"home",warn:[],pages:["r_raised"],s:156,di:96,act:"confirm",commit:PAGES.r_raised[4][0]});
   S.ref.push({id:uid("r"),p:"pYaw",d:d2,by:"l20",code:"confirm",urg:3,seen:d3});
+  // Example follow-up entries and closures for referrals. A separate random sequence, so that the rest of the example data is unchanged.
+  {index();const Q=rng(20261123),wpick=o=>{const ks=Object.keys(o);let x=Q()*ks.reduce((a,k)=>a+o[k],0);for(const k of ks){x-=o[k];if(x<0)return k;}return ks[0];};let tn=0;
+   const WW={cost:3,transport:2,time:3,well:4,fear:2,nhis:2,herbs:2,wait:1,family:1,forgot:1,other:1},whys=()=>{const a=[wpick(WW)];if(Q()<.35){const b=wpick(WW);if(b!==a[0])a.push(b);}return a;};
+   for(const r of S.ref){const p=IX.p[r.p];if(!p||r.p==="pYaw")continue;const ln=IX.hh[p.hh].ln,lnt=IX.w[ln].lnt,end=r.seen||TODAY,span=diff(end,r.d);if(span<9)continue;
+     if(r.seen){if(span>16&&Q()<.5)r.fu=[{d:addD(r.d,7+Q()*(span-9)),t:++tn,by:ln,st:"not",why:whys(),act:wpick({ret:6,comp:3,other:1}),note:""}];continue;}
+     if(Q()<.12)continue;   // some open referrals have no follow-up yet
+     r.fu=[];let d=addD(r.d,6+Q()*10);
+     while(d<=TODAY&&r.fu.length<3){const st=wpick(r.fu.length?{not:5,went:1,other:1.5,wont:3}:{not:6.5,went:1,other:1,wont:1.5});
+       r.fu.push({d,t:++tn,by:Q()<.8?ln:lnt,st,why:st==="not"||st==="wont"?whys():[],act:st==="not"?wpick({ret:6,comp:3,other:1}):st==="wont"&&Q()<.5?"other":null,note:""});
+       if(st!=="not")break;d=addD(d,14+Q()*16);}
+     const f=lastFu(r);if(!f)continue;const cd=addD(f.d,2+Q()*9);if(cd>TODAY)continue;
+     if(f.st==="wont"&&Q()<.7)r.closed={d:cd,by:lnt,how:"declined",note:""};else if(f.st==="other"&&Q()<.75)r.closed={d:cd,by:Q()<.7?lnt:IX.w[lnt].prom,how:"elsewhere",note:""};}}
   if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.flatMap(h=>IX.hhP[h.id]).filter(p=>alive(p)&&(isPatient(p)||atRisk(p))).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }

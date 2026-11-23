@@ -191,8 +191,31 @@ begin
   return base;
 end $$;
 
+-- Internal: a referral record edited on two devices keeps every follow-up entry from both.
+-- "Seen at the facility" can be set only by the clinic or the administrator, and a referral can be closed
+-- (declined, or seen elsewhere) only by a Trainer, a Promoter or the administrator. Once set, neither is removed.
+create or replace function public.cmd_merge_ref(old_ jsonb, new_ jsonb, new_is_newer boolean, role_ text)
+returns jsonb language plpgsql immutable as $$
+declare base jsonb; v_seen text; v_closed jsonb;
+begin
+  base := case when new_is_newer then new_ else old_ end;
+  if jsonb_typeof(old_->'fu') = 'array' or jsonb_typeof(new_->'fu') = 'array' then
+    base := base || jsonb_build_object('fu', (select coalesce(jsonb_agg(e order by e->>'d', coalesce((e->>'t')::numeric, 0), e::text), '[]'::jsonb)
+      from (select distinct e from jsonb_array_elements(
+        (case when jsonb_typeof(old_->'fu') = 'array' then old_->'fu' else '[]'::jsonb end) ||
+        (case when jsonb_typeof(new_->'fu') = 'array' then new_->'fu' else '[]'::jsonb end)) e) x));
+  end if;
+  v_seen := coalesce(nullif(old_->>'seen', ''), case when role_ in ('clinic', 'admin') then nullif(new_->>'seen', '') end);
+  v_closed := case when jsonb_typeof(old_->'closed') = 'object' then old_->'closed'
+                   when role_ in ('lnt', 'prom', 'admin') and jsonb_typeof(new_->'closed') = 'object' then new_->'closed' end;
+  base := base - 'seen' - 'closed';
+  if v_seen is not null then base := base || jsonb_build_object('seen', v_seen); end if;
+  if v_closed is not null then base := base || jsonb_build_object('closed', v_closed); end if;
+  return base;
+end $$;
+
 -- Send records from a tablet. A record is accepted only inside the caller's own scope,
--- and (except for person records, which are merged) only if it is newer than the server's copy.
+-- and (except for person and referral records, which are merged) only if it is newer than the server's copy.
 create or replace function public.cmd_push(p_token text, p_records jsonb)
 returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare me public.cmd_workers; o public.cmd_workers; r jsonb; v_ty text; v_lnt text; v_prom text; v_u bigint; ok boolean;
@@ -224,6 +247,10 @@ begin
         update public.cmd_records set body = public.cmd_merge_person(old_.body, r->'body', v_u >= old_.u), u = greatest(old_.u, v_u),
                ln = o.id, lnt = v_lnt, prom = v_prom, seq = nextval('public.cmd_seq'), updated_by = me.id, updated_at = now()
          where ty = v_ty and id = r->>'id';
+      elsif v_ty = 'ref' then
+        update public.cmd_records set body = public.cmd_merge_ref(old_.body, r->'body', v_u >= old_.u, me.role), u = greatest(old_.u, v_u),
+               ln = o.id, lnt = v_lnt, prom = v_prom, seq = nextval('public.cmd_seq'), updated_by = me.id, updated_at = now()
+         where ty = v_ty and id = r->>'id';
       elsif v_u > old_.u then
         update public.cmd_records set body = r->'body', u = v_u, ln = o.id, lnt = v_lnt, prom = v_prom,
                seq = nextval('public.cmd_seq'), updated_by = me.id, updated_at = now()
@@ -231,7 +258,8 @@ begin
       else k := k + 1; continue;
       end if;
     else
-      insert into public.cmd_records(id, ty, ln, lnt, prom, body, u, updated_by) values (r->>'id', v_ty, o.id, v_lnt, v_prom, r->'body', v_u, me.id);
+      insert into public.cmd_records(id, ty, ln, lnt, prom, body, u, updated_by)
+      values (r->>'id', v_ty, o.id, v_lnt, v_prom, case when v_ty = 'ref' then public.cmd_merge_ref('{}'::jsonb, r->'body', true, me.role) else r->'body' end, v_u, me.id);
     end if;
     n := n + 1;
   end loop;
@@ -286,6 +314,7 @@ end $$;
 revoke execute on function public.cmd_me(text) from public, anon, authenticated;
 revoke execute on function public.cmd_worker_json(public.cmd_workers, boolean) from public, anon, authenticated;
 revoke execute on function public.cmd_merge_person(jsonb, jsonb, boolean) from public, anon, authenticated;
+revoke execute on function public.cmd_merge_ref(jsonb, jsonb, boolean, text) from public, anon, authenticated;
 revoke execute on function public.cmd_login(text, text), public.cmd_bootstrap(text, text, text), public.cmd_logout(text),
   public.cmd_workers_list(text), public.cmd_save_worker(text, jsonb, text), public.cmd_push(text, jsonb),
   public.cmd_pull(text, bigint), public.cmd_settings_get(text), public.cmd_settings_set(text, jsonb), public.cmd_ping() from public;
