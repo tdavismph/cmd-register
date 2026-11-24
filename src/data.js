@@ -27,7 +27,8 @@ const CFG={country:"Ghana",
   // Blood pressure rules: section 4.4 of the demonstration narrative (version 7).
   bp:{hi:[140,90],prompt:[180,110],pregEmerg:[160,110]},
   // Blood glucose, mmol/L and HbA1c %: WHO diagnostic values. For clinical review before field use.
-  glu:{fast:7.0,rand:11.1,a1c:6.5,a1cGoal:7.0,fastGoal:7.0},
+  glu:{fast:7.0,rand:11.1,a1c:6.5,a1cGoal:7.0,fastGoal:7.0,
+       emerg:18.0},   // fingerstick at or above this: same-day referral. Draft, from the 18 mmol/L level in WHO HEARTS-D (2020). For clinical review.
   waist:{M:94,F:80},        // cm; raised waist (IDF values used for sub-Saharan Africa). Draft.
   // African Diabetes Risk Score (Mayige 2014; derived in Tanzania, Senegal and Guinea): age, waist and hypertension.
   // Coefficients and cut-off as published for the South African Diabetes Prevention Programme. The cut-off needs a local check.
@@ -130,7 +131,7 @@ function seenRecently(p,on){on=on||TODAY;const ds=S.ref.filter(r=>r.p===p.id&&r.
 const FUST={not:"Not yet gone",went:"Went, but the clinic has not recorded it",other:"Went to another facility",wont:"Will not go"};
 const FUWHY={cost:"Cost of the visit, tests or medicines",transport:"Transport or distance",time:"No time (work, or caring for others)",well:"Feels well",fear:"Fear of the result or of the facility",
   nhis:"NHIS not active",herbs:"Prefers herbs or prayer",wait:"Long waits or poor treatment at the facility",family:"A family member does not agree",forgot:"Forgot, or did not understand the referral",other:"Other"};
-const FUACT={ret:"Return visit",comp:"Companion from the corps",other:"Other"};
+const FUACT={ret:"Return visit",comp:"Return visit with SA companion",other:"Other"};
 const CLOSED={declined:"Declined",elsewhere:"Seen elsewhere"};
 const FUPAGE={well:"m_well",herbs:"m_herbs"};
 const refOpen=r=>!r.seen&&!r.closed;
@@ -154,7 +155,7 @@ function decide(p,s,d,warn,preg,medNo,on){on=on||TODAY;
   if(!p.htn.dx&&hi){const before=p.bp.some(r=>elev(r)&&r.d!==on);
     return before?hold({urg:3,code:"confirm",t:"Refer to the facility for confirmation and treatment. The reading is raised on a second day.",refer:1}):{urg:0,code:"recheck",t:"Raised today. One reading does not show a condition. Check again at the next visit, within one month."};}
   return{urg:0,code:"ok",t:"Below 140 over 90. Praise the person."+(p.htn.dx?" Continue the medicine.":" Check again in about four months.")};}
-const REASON={emerg:"Emergency",preg:"Raised BP in pregnancy",prompt:"BP 180/110 or more",relink:"Back to care (diagnosed)",confirm:"BP raised twice: confirm",glu:"Sugar screen raised: confirm",side:"Medicine side effects",feet:"Foot sore"};
+const REASON={emerg:"Emergency",preg:"Raised BP in pregnancy",prompt:"BP 180/110 or more",relink:"Back to care (diagnosed)",confirm:"BP raised twice: confirm",glu:"Sugar screen raised: confirm",gluhi:"Very high blood sugar",side:"Medicine side effects",feet:"Foot sore"};
 
 /* ---------- example data (fictitious) ---------- */
 function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}

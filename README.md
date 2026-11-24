@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.18. The app opens on a welcome screen with two choices:
+Build 0.19. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
