@@ -91,28 +91,48 @@ function mapMount(id,M,items,onPick,fitAll){const cv=document.getElementById(id)
 const mapBox=(id,h)=>'<div class="mapwrap"><canvas id="'+id+'" class="mapcv" style="height:'+(h||"62vh")+'"></canvas><div class="mapbtn"><button data-act="mapz" data-id="'+id+'" data-v="in" aria-label="Zoom in">+</button><button data-act="mapz" data-id="'+id+'" data-v="out" aria-label="Zoom out">−</button><button data-act="mapz" data-id="'+id+'" data-v="fit">Households</button><button data-act="mapz" data-id="'+id+'" data-v="all">Whole area</button></div></div><p class="small muted">Map data '+MAPOSM+". Drag to move the map. Pinch, or use + and −, to zoom.</p>";
 
 /* household squares */
-const MCOL={none:"#2e9a5b",htn:"#2a6fdb",dm:"#d8402f",both:"#8a41c9",vac:"#9aa3a0"};
+const MCOL={none:"#2e9a5b",htn:"#2a6fdb",dm:"#d8402f",both:"#8a41c9",vac:"#9aa3a0",mon:"#e39b2d"};
+const mapField=r=>r==="ln"||r==="lnt";   // Leader Neighbors and Trainers: their own households, coloured by visit schedule, never by condition
+const mapsUrl=g=>"https://www.google.com/maps/search/?api=1&query="+g.lat+","+g.lon;
 function mapItems(){const r=me().role,ids=scope(),full=r==="admin"||r==="prom",out=[],seen={};
   for(const h of S.hh){const g=h.cen&&h.cen.gps;if(!g)continue;const own=(IX.w[h.ln]||{}).role;
-    if(!(r==="admin"||(r==="prom"&&(own==="enum"||ids.has(h.ln)))||(r==="enum"&&h.ln===UI.who)))continue;
+    if(!(r==="admin"||(r==="prom"&&(own==="enum"||ids.has(h.ln)))||(r==="enum"&&h.ln===UI.who)||(mapField(r)&&ids.has(h.ln))))continue;
     const ps=(IX.hhP[h.id]||[]).filter(alive),H=ps.some(p=>p.htn.dx),D=ps.some(p=>p.dm.dx),st=h.cen.st;
-    let cls=st==="vac"?"vac":st!=="done"?"open":!full?"none":H&&D?"both":H?"htn":D?"dm":"none";
+    let cls=st==="vac"?"vac":st!=="done"?"open":mapField(r)?(hhMonthly(h)?"mon":"none"):!full?"none":H&&D?"both":H?"htn":D?"dm":"none";
     const key=g.lat.toFixed(5)+","+g.lon.toFixed(5),n=seen[key]=(seen[key]||0)+1,a=n>1?(n-2)*2.4:0;   // houses at the same spot are fanned out a little
     out.push({id:h.id,lat:g.lat,lon:g.lon,fill:cls==="open"?null:MCOL[cls],cls,dx:n>1?Math.cos(a)*(1+Math.floor((n-2)/6)):0,dy:n>1?Math.sin(a)*(1+Math.floor((n-2)/6)):0});}
   return out;}
 function mapLegend(full){const sq=(c,t)=>'<span class="lg"><i style="background:'+(c||"transparent")+'"></i>'+t+"</span>";
+  if(mapField(me().role))return '<div class="row">'+sq(MCOL.mon,"Monthly group lesson and home visit")+sq(MCOL.none,"Screening visit about three times a year")+"</div>";
   return '<div class="row">'+(full?sq(MCOL.none,"Censused, no patient")+sq(MCOL.htn,"Hypertension")+sq(MCOL.dm,"Diabetes")+sq(MCOL.both,"Both"):sq(MCOL.none,"Completed"))+sq(MCOL.vac,"Vacant, or not a home")+sq(null,"Visited, not completed (call back, or refused)")+"</div>";}
-function vCMap(){const r=me().role,full=r==="admin"||r==="prom";let o="<h1>Census map</h1>";
+function vCMap(){const r=me().role,full=r==="admin"||r==="prom",field=mapField(r);let o="<h1>"+(field?"Household map":"Census map")+"</h1>";
   if(UI.note){o+='<div class="note '+(UI.note[1]||"")+'">'+esc(UI.note[0])+"</div>";UI.note=null;}
   if(!MAPS.cur){if(MAPS.err)return o+'<div class="note bad">The map could not be loaded. Connect to the internet once and open this page again.</div>'+(r==="admin"?mapAreaCard():"");
     mapLoad(()=>{if(UI.tab==="cmap"&&!UI.mode)render();});return o+'<div class="note">Loading the map…</div>';}
   const items=mapItems(),noLoc=S.hh.filter(h=>h.cen&&!h.cen.gps&&(r!=="enum"||h.ln===UI.who)).length,M=MAPS.cur;
   const outside=items.filter(i=>i.lat<M.bbox[0]||i.lat>M.bbox[2]||i.lon<M.bbox[1]||i.lon>M.bbox[3]).length;
-  o+="<p class='muted'>"+items.length+" household"+(items.length===1?"":"s")+" with a location."+(noLoc?" "+noLoc+" recorded without a location, so not on the map.":"")+(outside?" "+outside+" lie outside the map area and are drawn on a blank background.":"")+(full?" The colours for hypertension and diabetes are shown only to the Administrator and the Promoters.":"")+"</p>";
+  if(field){const mine=S.hh.filter(h=>scope().has(h.ln)).length;
+    o+=areaSel()+"<p class='muted'>"+items.length+" of "+mine+" household"+(mine===1?"":"s")+" "+(items.length===1?"has":"have")+" a location from the census. Tap a square to see whose house it is and how to find it.</p>";}
+  else o+="<p class='muted'>"+items.length+" household"+(items.length===1?"":"s")+" with a location."+(noLoc?" "+noLoc+" recorded without a location, so not on the map.":"")+(outside?" "+outside+" lie outside the map area and are drawn on a blank background.":"")+(full?" The colours for hypertension and diabetes are shown only to the Administrator and the Promoters.":"")+"</p>";
   o+=mapBox("cmap")+mapLegend(full)+'<div id="mapinfo"></div>';
   if(r==="admin")o+=mapAreaCard();
-  setTimeout(()=>mapMount("cmap",M,items,mapPick),0);return o;}
+  const key=UI.who+"|"+UI.area,foc=UI.mapFocus;UI.mapFocus=null;if(MV.cmap&&MV.cmap.key!==key)delete MV.cmap;
+  setTimeout(()=>{mapMount("cmap",M,items,mapPick);const st=MV.cmap;if(!st)return;st.key=key;
+    const it=foc&&items.find(i=>i.id===foc);if(it){mapPrep(M);st.cx=(it.lon-M.bbox[1])*1e5*M._kx;st.cy=(it.lat-M.bbox[0])*1e5;st.k=Math.max(st.k,2.2);st.sel=foc;const cv=document.getElementById("cmap");mapDraw(cv,M,items,foc);mapPick(foc);}},0);return o;}
+/* household page: where the house is, from the census */
+function hhWhere(h){const c=h.cen,g=c&&c.gps;if(!c)return"";
+  if(!g)return '<div class="card"><h3>Where this house is</h3><p class="small">'+(c.lm?esc(c.lm)+". ":"")+"No location was recorded for this house at the census.</p></div>";
+  let o='<div class="card"><h3>Where this house is</h3><p>'+(c.lm?esc(c.lm)+".":"No description was written at the census.")+"</p>";
+  if(MAPS.cur){const key=h.id;if(MV.hhmap&&MV.hhmap.key!==key)delete MV.hhmap;o+=mapBox("hhmap","240px");
+    setTimeout(()=>{mapMount("hhmap",MAPS.cur,[{id:h.id,lat:g.lat,lon:g.lon,fill:"#111"}],null);if(MV.hhmap)MV.hhmap.key=key;},0);}
+  else if(MAPS.err)o+='<p class="small muted">The map could not be loaded. Connect to the internet once and open this page again.</p>';
+  else{mapLoad(()=>{if(UI.mode==="hh"&&UI.hh===h.id)render();});o+='<p class="small muted">Loading the map…</p>';}
+  o+='<div class="row">'+(TABS[me().role].some(t=>t[0]==="cmap")?'<button data-act="showmap" data-id="'+h.id+'">Show among the other households</button>':"")+'<a class="btnlink" href="'+mapsUrl(g)+'" target="_blank" rel="noopener">Open in a maps app</a></div>'+
+    "<p class='small muted'>Latitude "+g.lat+", longitude "+g.lon+", recorded at the census"+(c.d?" on "+fmtD(c.d):"")+" and accurate to about "+Math.round(g.acc)+" m. The maps app needs an internet connection.</p></div>";
+  return o;}
 function mapPick(id){const el=$("#mapinfo");if(!el)return;if(!id){el.innerHTML="";return;}const h=IX.hh[id],ps=IX.hhP[id]||[],full=["admin","prom"].includes(me().role);
+  if(mapField(me().role)){const g=h.cen.gps,ln=IX.w[h.ln]||{};
+    el.innerHTML='<div class="card"><h2>'+esc(h.head)+' <span class="muted small">'+esc(h.no)+"</span></h2><div class='row'>"+chip(hhMonthly(h)?["Monthly","info"]:["Screening","good"])+chip(["Location accurate to about "+Math.round(g.acc)+" m",g.acc<=CZ.good?"good":g.acc<=CZ.poor?"warn":"bad"])+"</div><p>"+(h.cen.lm?esc(h.cen.lm)+".":"No description was written at the census.")+"</p><p class='small muted'>"+(me().role==="lnt"?"Leader Neighbor: "+esc(ln.name||"")+". ":"")+(h.last?"Last visit "+fmtD(h.last)+".":"Not yet visited.")+'</p><div class="row"><button class="pri" data-hh="'+h.id+'">Open the household</button><a class="btnlink" href="'+mapsUrl(g)+'" target="_blank" rel="noopener">Open in a maps app</a></div></div>';return;}
   el.innerHTML='<div class="card"><h2>'+esc(h.head)+' <span class="muted small">'+esc(h.no)+"</span></h2><div class='row'>"+chip(CST[h.cen.st])+(h.cen.st==="cb"&&h.cen.why?chip([CZCB[h.cen.why],"warn"]):"")+chip(["Location accurate to about "+Math.round(h.cen.gps.acc)+" m",h.cen.gps.acc<=CZ.good?"good":h.cen.gps.acc<=CZ.poor?"warn":"bad"])+"</div><p class='small'>"+(h.cen.lm?esc(h.cen.lm)+". ":"")+fmtD(h.cen.d)+", "+esc((IX.w[h.cen.by]||{}).name||"")+"."+(h.cen.st==="done"?" "+ps.length+" adult"+(ps.length===1?"":"s")+" listed.":"")+"</p>"+
     (full&&h.cen.st==="done"?"<p class='small'>"+ps.filter(alive).map(p=>pLink(p)+" ("+p.age+")").join(", ")+"</p>":"")+"</div>";}
 if(typeof document!=="undefined")document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.dataset.act!=="mapz")return;const cv=document.getElementById(b.dataset.id);if(!cv||!cv._zoom)return;const v=b.dataset.v;if(v==="in")cv._zoom(1.5);else if(v==="out")cv._zoom(1/1.5);else cv._fit(v==="all");});
