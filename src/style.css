@@ -29,6 +29,7 @@ nav{display:flex;gap:4px;overflow-x:auto;padding-block:6px}
 nav button{flex:none}
 main{padding-block:16px 64px;display:flex;flex-direction:column;gap:16px}
 h1{font-size:22px;margin:0;font-weight:800;text-wrap:balance}
+h1.czname{font-size:38px;line-height:1.15;margin:4px 0 2px}   /* census: the name of the person being seen, 75% larger so it is not overlooked */
 h2{font-size:17px;margin:0;font-weight:800;text-wrap:balance}
 h3{font-size:13px;margin:0;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 p{margin:0}
