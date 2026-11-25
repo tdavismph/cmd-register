@@ -96,6 +96,8 @@ body.census .bar button.tab{color:#e4f3e7} body.census .bar button.tab.on{backgr
 body.census .brand::before{content:"CENSUS";display:inline-block;background:#ffd24d;color:#14302b;border-radius:6px;padding:1px 8px;margin-right:8px;font-size:13px;letter-spacing:.08em;vertical-align:1px}
 .say,.do{border-radius:var(--r);padding:12px 14px;font-size:18px;line-height:1.45;color:#14302b}
 .say{background:#fff3c4;border-left:6px solid #d99a00} .do{background:#dcebf7;border-left:6px solid #1c6aa8;font-size:16px}
+.pick{display:flex;flex-wrap:wrap;gap:10px 36px;align-items:flex-end}
+.pick .lab{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px} .pick .lab.need{color:var(--bad)} .pick .lab.need::after{content:" *"}
 .say::before,.do::before{display:block;font-size:12px;font-weight:800;letter-spacing:.08em;margin-bottom:2px}
 .say::before{content:"SAY";color:#7a5600} .do::before{content:"DO";color:#174f7d}
 
