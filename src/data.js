@@ -91,6 +91,7 @@ const PAGES={
  t_tobacco:["nosmoke","Alcohol and tobacco","Does anyone in this house smoke, or drink alcohol on most days?",["Smoking damages the blood vessels and greatly raises the risk of stroke and heart attack.","Smoke also harms the family. Keep smoke away from the house.","Less alcohol means lower pressure. Have days with none.","The money saved in one week can buy vegetables for the house."],["Have alcohol-free days each week","Keep all smoke out of the house","Ask the health worker for help to stop smoking"]],
  s_stress:["moon","Stress and sleep","How have you been sleeping, and what has been on your mind?",["Worry and poor sleep raise the pressure and make it harder to care for yourself.","Slow breathing helps: breathe in for four counts and out for six, for five minutes.","Keep the same time for sleep each night.","Share your worries with someone you trust."],["Do slow breathing for five minutes each evening","Go to bed at the same time each night"]],
  e_plan:["phone","Household emergency plan","If someone in this house suddenly could not speak or lift an arm, what would you do?",["Signs of stroke: a drooping face, a weak arm or leg on one side, trouble speaking, sudden confusion.","Signs of heart attack: heavy chest pain, breathlessness, sweating.","Call 112 and go to hospital at once. Do not wait, and do not give herbs first.","Decide now: who calls, which hospital, how to get there, and where the NHIS cards are kept."],["Make our household emergency plan today","Keep NHIS cards and transport money in one known place"]],
+ e_plan_s:["phone","Household emergency plan: for stroke and heart attack survivors","If someone in this house suddenly could not speak or lift an arm, what would you do?",["Having had one stroke or heart attack is the strongest warning of another.","Ask family members to join this part of the visit.","Signs of stroke: a drooping face, a weak arm or leg on one side, trouble speaking, sudden confusion.","Signs of heart attack: heavy chest pain, breathlessness, sweating.","Call 112 and go to hospital at once. Do not wait, and do not give herbs first.","Decide now: who calls, which hospital, how to get there, and where the NHIS cards are kept."],["Make our household emergency plan today","Keep NHIS cards and transport money in one known place"]],
  f_helpers:["hands","The Four Helpers","Which of the Four Helpers is hardest for you?",["Check your numbers.","Eat well and move more.","Take your medicine every day.","Help each other at home."],["Work on one Helper this month","A family member helps me with it"]],
  f_family:["family","Family support","What will each person here do to help?",["The whole household eats the same healthy food.","Family members remind and encourage. They do not scold.","Go to the clinic together when you can.","With the Four Helpers, a person with these conditions can live long and well."],["Each family member names one way to help","We eat the same healthy food together"]]};
 const PREV_TOPICS=["k_salt","k_drinks","k_plate","a_move","t_tobacco"];   // screening visits: one topic not yet covered
@@ -112,6 +113,13 @@ const lastBP=p=>p.bp[p.bp.length-1];
 const elevDays=p=>new Set(p.bp.filter(elev).map(r=>r.d)).size;
 const alive=p=>!p.death&&!p.out;
 const isPatient=p=>p.htn.dx||p.dm.dx;
+/* Stroke and heart attack survivors (secondary prevention). p.cvd={st,mi,d}: st and mi are true, false, or absent when not yet asked.
+   Set by the two history questions in the visit, or by recording a Stroke or Heart attack event. A survivor is followed like a patient. */
+const isSurv=p=>!!(p.cvd&&(p.cvd.st||p.cvd.mi));
+const survTxt=p=>p.cvd&&p.cvd.st&&p.cvd.mi?"Stroke and heart attack survivor":p.cvd&&p.cvd.st?"Stroke survivor":"Heart attack survivor";
+const inCare=p=>isPatient(p)||isSurv(p);
+const SURVMED=["Statin","Aspirin"];
+const PIMG={e_plan_s:"e_plan"};   // pages that share another page's picture
 const fingers=p=>p.glu.filter(g=>g.t==="finger");
 const labs=p=>p.glu.filter(g=>g.t!=="finger");
 const gluPos=g=>g.t==="a1c"?g.v>=CFG.glu.a1c:g.t==="finger"&&!g.fast?g.v>=CFG.glu.rand:g.v>=CFG.glu.fast;
@@ -120,7 +128,7 @@ function riskScore(p){if(!p.waist)return null;const A=CFG.adrs,h=p.htn.dx||elev(
 const riskHigh=p=>{const r=riskScore(p);return r!=null&&r>CFG.adrs.cut;};
 function raisedOnce(p){const l=lastBP(p);return !p.htn.dx&&!p.htn.ruledOut&&elev(l);}
 const atRisk=p=>alive(p)&&!isPatient(p)&&(raisedOnce(p)||screenPos(p)||(p.age>=35&&riskHigh(p)));
-const hhMonthly=h=>(IX.hhP[h.id]||[]).some(p=>alive(p)&&(isPatient(p)||atRisk(p)));
+const hhMonthly=h=>(IX.hhP[h.id]||[]).some(p=>alive(p)&&(inCare(p)||atRisk(p)));
 function htnLabel(p){if(p.htn.dx)return p.htn.rx?["On BP treatment","info"]:["BP diagnosed, not on treatment","bad"];
   if(p.htn.ruledOut&&!elev(lastBP(p)))return["BP normal at clinic","good"];
   if(!p.bp.length)return p.age>=35?["BP not checked","warn"]:null;
@@ -284,5 +292,17 @@ function build(){
        if(st!=="not")break;d=addD(d,14+Q()*16);}
      const f=lastFu(r);if(!f)continue;const cd=addD(f.d,2+Q()*9);if(cd>TODAY)continue;
      if(f.st==="wont"&&Q()<.7)r.closed={d:cd,by:lnt,how:"declined",note:""};else if(f.st==="other"&&Q()<.75)r.closed={d:cd,by:Q()<.7?lnt:IX.w[lnt].prom,how:"elsewhere",note:""};}}
-  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.flatMap(h=>IX.hhP[h.id]).filter(p=>alive(p)&&(isPatient(p)||atRisk(p))).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
+  // Example stroke and heart attack survivors. Added after the simulation, without drawing random numbers, so the rest of the example data is unchanged.
+  {index();const flag=(p,k,d)=>{p.cvd=Object.assign({st:false,mi:false},p.cvd,{[k]:true,d:p.cvd&&p.cvd.d||d});},add=(p,ms)=>{for(const m of ms)if(!p.meds.includes(m))p.meds.push(m);};
+   for(const e of S.ev){const p=IX.p[e.p];if(p&&(e.type===EVENTS[0]||e.type===EVENTS[1]))flag(p,e.type===EVENTS[0]?"st":"mi",e.d);}
+   const mine=id=>(IX.lnH[id]||[]).filter(h=>h.id!==vh.id).flatMap(h=>IX.hhP[h.id]||[]).filter(p=>alive(p)&&!p.cvd&&!p.preg);
+   // Akosua Asante's area: one survivor with neither condition (heart attack, on a statin and aspirin), one with hypertension and both medicines, one with hypertension and neither
+   const a=mine("l20"),free=a.filter(p=>!isPatient(p)&&!atRisk(p)&&p.age>=50&&!openRef(p).length&&mIdx(IX.hh[p.hh].last)!==CUR)[0]||a.filter(p=>!isPatient(p)&&p.age>=45)[0];
+   if(free){flag(free,"mi",free.bp.length?free.bp[0].d:CFG.census);add(free,[MEDS[7],MEDS[8]]);}
+   const tr=a.filter(p=>p.htn.rx&&p.age>=50&&p!==free);if(tr[0]){flag(tr[0],"st",tr[0].bp[0]?tr[0].bp[0].d:CFG.census);add(tr[0],[MEDS[7],MEDS[8]]);}if(tr[1])flag(tr[1],"st",tr[1].bp[0]?tr[1].bp[0].d:CFG.census);
+   // elsewhere: in every fourth Leader Neighbor's area, the oldest person on BP treatment, and in every eighth an older adult with neither condition
+   LN.forEach((ln,i)=>{if(ln.id==="l20"||i%4!==1)return;const b=mine(ln.id),t=b.filter(p=>p.htn.rx&&p.age>=55).sort((x,y)=>y.age-x.age)[0];
+     if(t){flag(t,i%8===1?"st":"mi",t.bp[0]?t.bp[0].d:CFG.census);if(i%12!==1)add(t,i%8===1?[MEDS[7],MEDS[8]]:[MEDS[7]]);}
+     if(i%8===5){const f=b.filter(p=>!isPatient(p)&&p.age>=60)[0];if(f){flag(f,"st",f.bp[0]?f.bp[0].d:CFG.census);add(f,[MEDS[8]]);}}});}
+  if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.flatMap(h=>IX.hhP[h.id]).filter(p=>alive(p)&&(inCare(p)||atRisk(p))).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }

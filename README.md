@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.20. The app opens on a welcome screen with two choices:
+Build 0.21. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -29,6 +29,16 @@ A referral stays open until the clinic records the person as seen, or a Trainer 
 - A Leader Neighbor adds an entry from the due-list task or during a home visit, where it is required when the person has an open referral. A Trainer or a Promoter adds one from the Referrals list.
 - After a referral is closed as declined, a raised reading creates no new routine referral for 90 days (`CFG.declineWait`), unless the person says in the visit that he or she is now willing to go. A warning sign, or a reading in the emergency or prompt range, always creates a new referral, whatever happened to an earlier one.
 - Report section 5 separates seen at the Salvation Army facility, seen elsewhere, declined and still open, and lists the reasons given for not going.
+
+### Stroke and heart attack survivors (from build 0.21)
+
+- Step 2 of every home visit asks two history questions: "Has a health worker ever told you that you had a stroke?" and "Has a health worker ever told you that you had a heart attack?". Both start unanswered and must be answered. Once answered they show as "on record"; the Leader Neighbor can tap "Change the stroke and heart attack answers" at a later visit.
+- A yes to either makes the person a survivor (`p.cvd = {st, mi, d}`). Recording a Stroke or Heart attack event sets the same flag.
+- A survivor is followed like a person with a diagnosis: the household is on monthly visits, the person is in the Leader Neighbor's group-lesson cohort, and the medicine question is asked at every visit.
+- When the answer to "taking the medicine every day?" is No, the visit asks "Which ones are being missed?" from the medicines on the clinic's record (for every person, survivor or not). The answer is saved with the visit (`v.missed`).
+- The survivor version of the Household emergency plan page (`e_plan_s`) is shown at the first visit made while the person is flagged and at every third visit after. It comes after referral and medicine pages and counts toward the limit of three pages, so it waits for the next visit when those fill the limit.
+- Reports, section 4: survivors identified, survivors with a statin or aspirin recorded as prescribed, and survivors taking all their medicines every day.
+- Leader Neighbors do not advise starting aspirin or any other medicine. No server change is needed for this build.
 
 ## The server (live mode)
 
