@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.23. The app opens on a welcome screen with two choices:
+Build 0.24. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -55,6 +55,26 @@ The census is done once, before Care Groups are formed, by temporary Enumerators
 - **Administrator:** the Census tab shows progress by pair (completed, call-backs, refusals, location quality, share of readings ending in 0) and the counts needed to plan Care Groups. Census referrals appear on the clinic's and the administrator's Referrals lists.
 - Census households are not in the reports until they are given to Leader Neighbors. The map and the forming of Care Groups come in later builds.
 - **Server:** run `server/update-0.23.sql` once. It adds the Enumerator role and limits each pair to the households, people and referrals it entered.
+
+### Optional modules: TB and HIV (from build 0.24)
+
+Two switches in Settings (administrator only), both OFF by default and synced with the other settings (`CFG.mods`). With a module off, the app shows and asks nothing of it. Records already collected are kept and return when it is switched on. All module text is a draft for review, not yet pre-tested or clinically reviewed. The code is in `src/modules.js`.
+
+**TB module**
+- Step 1 of a home visit asks the four symptom questions (cough, fever, night sweats, weight loss) of every adult, unless the person was asked in the last 90 days, has an open TB referral or is on TB treatment.
+- Any symptom creates a `tb` referral (to be seen within days), followed in the usual referral loop.
+- The clinic entry records the test result, the treatment start date and the outcome (`p.tb = {asked, sym, posD, test, rx:{start,out}, contacts}`).
+- A person on TB treatment is followed like a patient: monthly visits, the medicine question, reasons and their pages, and a question on whether the people in the house have been checked.
+- Three counselling pages, two QIVC steps and a report section.
+
+**HIV module**
+- Once a year a Leader Neighbor or Trainer asks each adult, in private, whether they had an HIV test in the last 12 months (`p.hq = {d, ans, off}`). "Not asked today: we were not alone" records nothing, so the question returns at the next visit.
+- For "no" or "never", the page is shown and a referral is offered (`hivtest`). No result is asked for, recorded or shown anywhere in the app.
+- Support for a person on ART exists only when the person tells a worker and agrees to its being recorded, or the clinic enrols the person with consent. It is a separate record (`S.hv`, type `hv`: `{p, art, src, lnOk, consent}`).
+- Who sees it: the clinic, Promoters and the Trainer. A Leader Neighbor sees it only with `lnOk`; the server sends her tablet an empty placeholder otherwise. The Administrator sees counts only.
+- Neutral wording wherever a family member could read the screen: "medicine support" on the Due list, "Clinic medicine (private)" in the visit, "Test at the facility" for the referral. HIV pages and commitments are not shown in a person's visit history.
+- Report: counts only, for the whole programme, shown to the Administrator and the clinic.
+- **Server:** run `server/update-0.24.sql` once (after 0.18 and 0.23). It is needed only for the ART support record; the switches and the TB module work without it.
 
 ## The server (live mode)
 

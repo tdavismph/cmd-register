@@ -5,7 +5,7 @@
    see server/setup.sql. */
 // Public values, safe to publish (the same as the key every visitor's browser receives).
 const SERVER=window.CMD_SERVER||{url:"https://zxyftmpskbhtjretacig.supabase.co",key:"sb_publishable_aRJWlS41yCDBQLrI_J_HPQ_dqBQZfP5"};
-const TYPES=["hh","p","v","ref","ev","gm","q"];   // an Enumerator may send households, people and referrals only
+const TYPES=["hh","p","v","ref","ev","gm","q","hv"];   // an Enumerator may send households, people and referrals only
 const L={mode:null,auth:null,seq:0,meta:{},dirty:{},last:null,msg:"",syncMsg:"",busy:false,welcome:"start"};
 const SNAP=new Map();   // record key -> JSON as last stored, to find records changed on this tablet
 const live=()=>L.mode==="live";
@@ -21,8 +21,8 @@ const IDB={db:null,
   open(){return new Promise(res=>{try{const r=indexedDB.open("cmd-register",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>{IDB.db=r.result;res(true);};r.onerror=()=>res(false);}catch(e){res(false);}});},
   get(k){return new Promise(res=>{try{const r=IDB.db.transaction("kv").objectStore("kv").get(k);r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null);}catch(e){res(null);}});},
   set(k,v){try{IDB.db.transaction("kv","readwrite").objectStore("kv").put(v,k);}catch(e){}}};
-const cfgPart=()=>({start:CFG.start,cut:CFG.adrs.cut,model:CFG.model});
-function applyCfg(c){if(!c)return;if(c.start)setStart(c.start);if(c.cut>0)CFG.adrs.cut=c.cut;if(c.model)Object.assign(CFG.model,c.model);}
+const cfgPart=()=>({start:CFG.start,cut:CFG.adrs.cut,model:CFG.model,mods:CFG.mods});
+function applyCfg(c){if(!c)return;if(c.start)setStart(c.start);if(c.cut>0)CFG.adrs.cut=c.cut;if(c.model)Object.assign(CFG.model,c.model);CFG.mods={tb:!!(c.mods&&c.mods.tb),hiv:!!(c.mods&&c.mods.hiv)};}
 function store(){if(!live()||!IDB.db)return;const recs={};for(const ty of TYPES)recs[ty]=S[ty];
   IDB.set("state",{mode:L.mode,auth:L.auth,seq:L.seq,meta:L.meta,dirty:L.dirty,last:L.last,cfg:cfgPart(),w:S.w,recs});}
 function wipeRecords(){for(const ty of TYPES)S[ty].length=0;S.w.length=0;SNAP.clear();L.meta={};L.dirty={};L.seq=0;L.last=null;}
@@ -66,7 +66,7 @@ async function sync(){if(!live()||L.busy||!L.auth||!L.auth.token)return;if(!navi
   L.busy=true;L.syncMsg="Syncing…";hdr();
   try{scan();
     const keys=Object.keys(L.dirty);
-    for(let i=0;i<keys.length;i+=200){const batch=keys.slice(i,i+200).map(k=>{const [ty,id]=k.split("|"),r=S[ty].find(x=>x.id===id);return r?{ty,id,ln:ownerOf(ty,r),u:L.meta[k]||Date.now(),body:r}:null;}).filter(Boolean);
+    for(let i=0;i<keys.length;i+=200){const batch=keys.slice(i,i+200).map(k=>{const [ty,id]=k.split("|"),r=S[ty].find(x=>x.id===id);return r&&!r.hidden?{ty,id,ln:ownerOf(ty,r),u:L.meta[k]||Date.now(),body:r}:null;}).filter(Boolean);
       if(batch.length)await rpc("cmd_push",{p_token:L.auth.token,p_records:batch});
       for(const k of keys.slice(i,i+200))delete L.dirty[k];}
     await refreshWorkers();

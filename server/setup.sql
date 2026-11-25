@@ -224,7 +224,8 @@ begin
   me := public.cmd_me(p_token);
   for r in select * from jsonb_array_elements(p_records) loop
     v_ty := r->>'ty'; v_u := coalesce((r->>'u')::bigint, 0);
-    if coalesce(r->>'id', '') = '' or v_ty not in ('hh','p','v','ref','ev','gm','q') or jsonb_typeof(r->'body') <> 'object' then k := k + 1; continue; end if;
+    if coalesce(r->'body'->>'hidden', '') = 'true' then k := k + 1; continue; end if;   -- a placeholder for a record the sender may not see
+    if coalesce(r->>'id', '') = '' or v_ty not in ('hh','p','v','ref','ev','gm','q','hv') or jsonb_typeof(r->'body') <> 'object' then k := k + 1; continue; end if;
     select * into o from public.cmd_workers where id = r->>'ln';
     if not found or o.role not in ('ln', 'lnt', 'enum') then k := k + 1; continue; end if;
     -- a census household belongs to the Enumerator who entered it, and to no Care Group, until the administrator gives it to a Leader Neighbor
@@ -233,8 +234,8 @@ begin
     -- what each role may write
     ok := case me.role
       when 'admin'  then true
-      when 'clinic' then v_ty in ('p', 'ref', 'ev')
-      when 'prom'   then v_prom = me.id and v_ty in ('p', 'v', 'ref', 'ev', 'q')
+      when 'clinic' then v_ty in ('p', 'ref', 'ev', 'hv')
+      when 'prom'   then v_prom = me.id and v_ty in ('p', 'v', 'ref', 'ev', 'q', 'hv')
       when 'lnt'    then v_lnt = me.id and (v_ty <> 'q' or (o.role = 'ln' and o.id <> me.id))
       when 'ln'     then o.id = me.id and v_ty <> 'q'
       when 'enum'   then o.id = me.id and v_ty in ('hh', 'p', 'ref')
@@ -251,6 +252,10 @@ begin
          where ty = v_ty and id = r->>'id';
       elsif v_ty = 'ref' then
         update public.cmd_records set body = public.cmd_merge_ref(old_.body, r->'body', v_u >= old_.u, me.role), u = greatest(old_.u, v_u),
+               ln = o.id, lnt = v_lnt, prom = v_prom, seq = nextval('public.cmd_seq'), updated_by = me.id, updated_at = now()
+         where ty = v_ty and id = r->>'id';
+      elsif v_ty = 'hv' then   -- confidential ART support record: the two copies are joined, the newer on top, so that neither side's fields are lost
+        update public.cmd_records set body = case when v_u >= old_.u then old_.body || (r->'body') else (r->'body') || old_.body end, u = greatest(old_.u, v_u),
                ln = o.id, lnt = v_lnt, prom = v_prom, seq = nextval('public.cmd_seq'), updated_by = me.id, updated_at = now()
          where ty = v_ty and id = r->>'id';
       elsif v_u > old_.u then
@@ -275,7 +280,10 @@ declare me public.cmd_workers; out_ jsonb;
 begin
   me := public.cmd_me(p_token);
   select jsonb_build_object('ok', true, 'seq', coalesce(max(q.seq), p_since), 'count', count(*),
-           'records', coalesce(jsonb_agg(jsonb_build_object('ty', q.ty, 'u', q.u, 'body', q.body) order by q.seq), '[]'::jsonb))
+           'records', coalesce(jsonb_agg(jsonb_build_object('ty', q.ty, 'u', q.u, 'body',
+             -- a Leader Neighbor receives an ART support record only when the person has agreed that she may know; otherwise an empty placeholder
+             case when q.ty = 'hv' and me.role = 'ln' and coalesce(q.body->>'lnOk', '') <> 'true'
+                  then jsonb_build_object('id', q.body->>'id', 'p', q.body->>'p', 'hidden', true) else q.body end) order by q.seq), '[]'::jsonb))
     into out_
     from (select * from public.cmd_records t
            where t.seq > p_since

@@ -102,9 +102,10 @@ const EVENTS=["Stroke","Heart attack","Hospital admission for BP or sugar","Foot
 const CAUSES=["Stroke","Heart attack or sudden collapse","Heart failure","Kidney failure","Diabetes complication","Other illness","Injury","Not known"];
 
 /* ---------- data ---------- */
-const S={w:[],hh:[],p:[],v:[],ref:[],gm:[],q:[],ev:[]};
+const S={w:[],hh:[],p:[],v:[],ref:[],gm:[],q:[],ev:[],hv:[]};   // hv: confidential ART support records (HIV module)
 const IX={};
 function index(){IX.w=Object.fromEntries(S.w.map(x=>[x.id,x]));IX.hh=Object.fromEntries(S.hh.map(x=>[x.id,x]));IX.p=Object.fromEntries(S.p.map(x=>[x.id,x]));
+  IX.hv=Object.fromEntries(S.hv.filter(x=>!x.hidden).map(x=>[x.p,x]));
   IX.hhP={};for(const p of S.p)(IX.hhP[p.hh]=IX.hhP[p.hh]||[]).push(p);IX.lnH={};for(const h of S.hh)(IX.lnH[h.ln]=IX.lnH[h.ln]||[]).push(h);}
 
 /* ---------- status rules ---------- */
@@ -117,7 +118,7 @@ const isPatient=p=>p.htn.dx||p.dm.dx;
    Set by the two history questions in the visit, or by recording a Stroke or Heart attack event. A survivor is followed like a patient. */
 const isSurv=p=>!!(p.cvd&&(p.cvd.st||p.cvd.mi));
 const survTxt=p=>p.cvd&&p.cvd.st&&p.cvd.mi?"Stroke and heart attack survivor":p.cvd&&p.cvd.st?"Stroke survivor":"Heart attack survivor";
-const inCare=p=>isPatient(p)||isSurv(p);
+const inCare=p=>isPatient(p)||isSurv(p)||onTB(p)||artLn(p);   // onTB and artLn: optional modules (modules.js)
 const SURVMED=["Statin","Aspirin"];
 const PIMG={e_plan_s:"e_plan"};   // pages that share another page's picture
 const fingers=p=>p.glu.filter(g=>g.t==="finger");
@@ -136,7 +137,7 @@ function htnLabel(p){if(p.htn.dx)return p.htn.rx?["On BP treatment","info"]:["BP
 function dmLabel(p){if(p.dm.dx)return p.dm.rx?["On diabetes treatment","info"]:["Diabetes diagnosed, not on treatment","bad"];
   if(screenPos(p))return["Sugar screen raised: needs clinic test","bad"];if(fingers(p).length||labs(p).length)return["Sugar normal","good"];return p.age>=35?["Sugar not tested","warn"]:null;}
 /* Date the person was last seen at the facility, if within CFG.noRefer days before `on`. */
-function seenRecently(p,on){on=on||TODAY;const ds=S.ref.filter(r=>r.p===p.id&&r.seen).map(r=>r.seen).concat((p.bp||[]).filter(r=>r.src==="clinic").map(r=>r.d),(p.glu||[]).filter(g=>g.by==="cl").map(g=>g.d)).filter(d=>d<=on&&diff(on,d)<=CFG.noRefer).sort();return ds.pop()||null;}
+function seenRecently(p,on){on=on||TODAY;const ds=S.ref.filter(r=>r.p===p.id&&r.seen&&rOn(r)).map(r=>r.seen).concat((p.bp||[]).filter(r=>r.src==="clinic").map(r=>r.d),(p.glu||[]).filter(g=>g.by==="cl").map(g=>g.d)).filter(d=>d<=on&&diff(on,d)<=CFG.noRefer).sort();return ds.pop()||null;}
 /* Referral follow-up. A referral stays open until the clinic records the person as seen (r.seen),
    or a Trainer or Promoter closes it (r.closed={d,by,how,note}). r.fu is the history of follow-up entries. */
 const FUST={not:"Not yet gone",went:"Went, but the clinic has not recorded it",other:"Went to another facility",wont:"Will not go"};
@@ -147,7 +148,7 @@ const CLOSED={declined:"Declined",elsewhere:"Seen elsewhere"};
 const FUPAGE={well:"m_well",herbs:"m_herbs"};
 const refOpen=r=>!r.seen&&!r.closed;
 const lastFu=r=>r.fu&&r.fu.length?r.fu[r.fu.length-1]:null;
-const openRef=p=>S.ref.filter(r=>r.p===p.id&&refOpen(r));
+const openRef=p=>S.ref.filter(r=>r.p===p.id&&refOpen(r)&&rOn(r));
 /* Date a referral for this person was closed as declined, if within CFG.declineWait days before `on`. */
 function declinedRecently(p,on){on=on||TODAY;return S.ref.filter(r=>r.p===p.id&&r.closed&&r.closed.how==="declined"&&r.closed.d<=on&&diff(on,r.closed.d)<=CFG.declineWait).map(r=>r.closed.d).sort().pop()||null;}
 /* What to do with a reading (narrative 4.4). warn = list of warning signs present. */
@@ -304,6 +305,6 @@ function build(){
    LN.forEach((ln,i)=>{if(ln.id==="l20"||i%4!==1)return;const b=mine(ln.id),t=b.filter(p=>p.htn.rx&&p.age>=55).sort((x,y)=>y.age-x.age)[0];
      if(t){flag(t,i%8===1?"st":"mi",t.bp[0]?t.bp[0].d:CFG.census);if(i%12!==1)add(t,i%8===1?[MEDS[7],MEDS[8]]:[MEDS[7]]);}
      if(i%8===5){const f=b.filter(p=>!isPatient(p)&&p.age>=60)[0];if(f){flag(f,"st",f.bp[0]?f.bp[0].d:CFG.census);add(f,[MEDS[8]]);}}});}
-  czSeed();index();
+  czSeed();index();modSeed();index();
   if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.flatMap(h=>IX.hhP[h.id]).filter(p=>alive(p)&&(inCare(p)||atRisk(p))).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }
