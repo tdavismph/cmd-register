@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.24.5. The app opens on a welcome screen with two choices:
+Build 0.25. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -53,6 +53,8 @@ The census is done once, before Care Groups are formed, by temporary Enumerators
 - **Numbering:** each household gets a census number when it is saved (`C-` + three characters for the pair + a running number). The Care Group part is added when households are given to Leader Neighbors.
 - **Data:** `h.cen = {st, d, by, gps:{lat,lon,acc}, lm, ph, kids, tries, cbTime}`; a census household has `h.ln` set to the Enumerator's id. People get `p.cen`, `p.ht`, `p.waist`, and the census reading in `p.bp` with `src:"census"` and the raw readings in `raw`. A person already on treatment at the census has `rxPre:true`, and the census date stands in for the unknown start date.
 - **Administrator:** the Census tab shows progress by pair (completed, call-backs, refusals, location quality, share of readings ending in 0) and the counts needed to plan Care Groups. Census referrals appear on the clinic's and the administrator's Referrals lists.
+- **Re-checks (from build 0.25):** a person with a raised reading at the census appears on the Promoters' "BP re-checks" list, with the house description and phone number, so that a Promoter can take the second reading in the weeks after the census. A second raised reading creates the referral. The server sends Promoters the census households, people, visits and referrals for this (run `server/update-0.25.sql`).
+- **Units (from build 0.25):** the administrator chooses in Settings whether height, waist and weight are typed in centimetres and kilograms (the default) or in feet, inches and pounds (`CFG.units`, synced). Records are always stored in cm and kg.
 - Census households are not in the reports until they are given to Leader Neighbors. The map and the forming of Care Groups come in later builds.
 - **Server:** run `server/update-0.23.sql` once. It adds the Enumerator role and limits each pair to the households, people and referrals it entered.
 

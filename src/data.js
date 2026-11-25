@@ -42,6 +42,9 @@ const CFG={country:"Ghana",
   model:{rrCvd:.80,rrCvdLo:.77,rrCvdHi:.83,rrDeath:.87,rrDeathLo:.84,rrDeathHi:.91,cvdRate:1.5,deathRate:2.0},
   };
 CFG.census=addD(CFG.start,-75);
+/* Units for typing height, waist and weight: "metric" (cm, kg) or "us" (feet and inches, pounds). Records are always stored in cm and kg. */
+CFG.units="metric";
+const imp=()=>CFG.units==="us",inCm=x=>Math.round(x*2.54*10)/10,lbKg=x=>Math.round(x*0.45359237*10)/10;
 const mIdx=d=>Math.floor(diff(d,CFG.start)/MLEN);            // 0 = first month of home visits
 const mStart=m=>addD(CFG.start,m*MLEN);
 let CUR=clamp(mIdx(TODAY),0,11);

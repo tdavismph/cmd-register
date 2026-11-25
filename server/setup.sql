@@ -235,7 +235,7 @@ begin
     ok := case me.role
       when 'admin'  then true
       when 'clinic' then v_ty in ('p', 'ref', 'ev', 'hv')
-      when 'prom'   then v_prom = me.id and v_ty in ('p', 'v', 'ref', 'ev', 'q', 'hv')
+      when 'prom'   then (v_prom = me.id and v_ty in ('p', 'v', 'ref', 'ev', 'q', 'hv')) or (o.role = 'enum' and v_ty in ('p', 'v', 'ref'))   -- a Promoter re-checks people recorded at the census
       when 'lnt'    then v_lnt = me.id and (v_ty <> 'q' or (o.role = 'ln' and o.id <> me.id))
       when 'ln'     then o.id = me.id and v_ty <> 'q'
       when 'enum'   then o.id = me.id and v_ty in ('hh', 'p', 'ref')
@@ -245,7 +245,7 @@ begin
     select * into old_ from public.cmd_records where ty = v_ty and id = r->>'id';
     if found then
       -- the existing copy must also be inside the caller's scope (a record cannot be moved out of someone else's area)
-      if (me.role in ('admin', 'clinic') or (me.role = 'prom' and old_.prom = me.id) or (me.role = 'lnt' and old_.lnt = me.id) or (me.role in ('ln', 'enum') and old_.ln = me.id)) is not true then k := k + 1; continue; end if;
+      if (me.role in ('admin', 'clinic') or (me.role = 'prom' and (old_.prom = me.id or exists (select 1 from public.cmd_workers w where w.id = old_.ln and w.role = 'enum'))) or (me.role = 'lnt' and old_.lnt = me.id) or (me.role in ('ln', 'enum') and old_.ln = me.id)) is not true then k := k + 1; continue; end if;
       if v_ty = 'p' then
         update public.cmd_records set body = public.cmd_merge_person(old_.body, r->'body', v_u >= old_.u), u = greatest(old_.u, v_u),
                ln = o.id, lnt = v_lnt, prom = v_prom, seq = nextval('public.cmd_seq'), updated_by = me.id, updated_at = now()
@@ -287,7 +287,7 @@ begin
     into out_
     from (select * from public.cmd_records t
            where t.seq > p_since
-             and (me.role in ('admin', 'clinic') or (me.role = 'prom' and t.prom = me.id) or (me.role = 'lnt' and t.lnt = me.id) or (me.role in ('ln', 'enum') and t.ln = me.id))
+             and (me.role in ('admin', 'clinic') or (me.role = 'prom' and (t.prom = me.id or (t.ty in ('hh', 'p', 'v', 'ref') and exists (select 1 from public.cmd_workers w where w.id = t.ln and w.role = 'enum')))) or (me.role = 'lnt' and t.lnt = me.id) or (me.role in ('ln', 'enum') and t.ln = me.id))
            order by t.seq limit 1000) q;
   return out_;
 end $$;

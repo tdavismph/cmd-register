@@ -43,7 +43,7 @@ function czNextPerson(F){const q=czQueue(F),k=q.indexOf(F.i);if(k>=0&&k<q.length
 function czDec(a){if(a.nobp)return null;const v=avgBP({r:a.r});if(v.s==null)return null;const hi=v.s>=CFG.bp.prompt[0]||v.di>=CFG.bp.prompt[1];
   const d=decide({id:"_census",htn:{dx:a.dxH==="y"},bp:[],glu:[]},v.s,v.di,hi?a.warn.filter(x=>x!=="__none"):[],a.preg==="y",false);return Object.assign({s:v.s,di:v.di,need3:v.need3,hi},d);}
 const CZSAY={ok:"Your blood pressure today is normal. Blood pressure can rise over the years without any sign, so it is good to check it from time to time. A volunteer from the project will visit this house in about three months to check it again, and about three times a year after that.",
-  recheck:"Your blood pressure today is higher than normal. One reading does not mean that you have high blood pressure. A volunteer from the project will come to check it again.",
+  recheck:"Your blood pressure today is higher than normal. One reading does not mean that you have high blood pressure. A nurse from the project will come in the next few weeks to check it again.",
   relink:"Your blood pressure is raised today. Please go back to the health facility where you get your treatment. A volunteer from the project will visit you soon.",
   prompt:"Your blood pressure is very high today. Please go to the Salvation Army health facility in the next few days, even if you feel well. They will be expecting you.",
   preg:"Your blood pressure is raised today. In pregnancy this must be checked soon. Please go to the Salvation Army health facility in the next few days. They will be expecting you.",
@@ -70,7 +70,7 @@ function vCz(){const F=UI.F,a=F.ad[F.i],miss=k=>F.tried&&k,q8=czQueue(F),pos=q8.
       (CZCB[F.out]?q(F.out==="cb"?"Best time to come back, if a neighbour knows":"Best time to come back",ctxt("cbTime",F.cbTime,"For example: Saturday morning")):"")+
       (F.tried&&czMissing(F)?'<div class="note bad">Please complete the items marked with *.</div>':"")+'<div class="row"><button class="pri tap" data-act="cznext">'+(F.out==="home"?"Next":"Save")+"</button></div></div>";}
   else if(F.step==="consent"){
-    o+='<h1>2. Ask permission</h1><div class="card">'+say("Good day. We are from The Salvation Army health project. We are visiting every house in this area to list the adults who live here and to check the blood pressure of everyone aged 35 or older. It is free. It takes about 15 minutes. What you tell us is kept private, and you may say no to any part. May we go ahead?")+
+    o+='<h1>2. Ask permission</h1><div class="card">'+say("Good day. We are working with a community health project. We are visiting every house in this area to list the adults who live here and to check the blood pressure of everyone aged 35 or older. It is free. It takes about 15 minutes. What you tell us is kept private, and you may say no to any part. May we go ahead?")+
       '<div class="row"><button class="pri tap" data-act="czyes">They agree</button></div><div class="row"><button data-act="czno">They do not agree</button></div></div>';}
   else if(F.step==="list"){
     o+='<h1>3. Who lives here</h1><div class="card">'+todo("First ask every adult aged 35 or older who is home to sit down and rest. Their blood pressure will be ready to take when you finish this list.")+
@@ -97,13 +97,13 @@ function vCz(){const F=UI.F,a=F.ad[F.i],miss=k=>F.tried&&k,q8=czQueue(F),pos=q8.
         '<label class="row"><input type="checkbox" data-cc="'+P+'nobp"'+(a.nobp?" checked":"")+' style="min-height:0"> No reading (the person said no, or the machine failed)</label></div>'+
         '<div id="czdyn">'+czDyn(F)+"</div></div>";
       o+='<div class="card"><h3>Height and waist</h3>'+todo("Height: shoes and head covering off if the person agrees, heels against the stand, looking straight ahead. Waist: over light clothing, tape level around the body at the navel, after a normal breath out. A woman is measured by the woman of the pair where possible, in private.")+
-        '<div class="row"><label>Height (cm) '+cnum(P+"ht",a.ht,"cm",110)+"</label><label>Waist (cm) "+cnum(P+"waist",a.waist,"cm",110)+'</label></div><p class="small muted">Leave a box empty if the person does not want that measurement.</p>'+
+        (imp()?'<div class="row"><label>Height '+cnum(P+"htFt",a.htFt,"feet",90)+" "+cnum(P+"htIn",a.htIn,"inches",100)+"</label><label>Waist (inches) "+cnum(P+"waistIn",a.waistIn,"inches",110)+"</label></div>":'<div class="row"><label>Height (cm) '+cnum(P+"ht",a.ht,"cm",110)+"</label><label>Waist (cm) "+cnum(P+"waist",a.waist,"cm",110)+"</label></div>")+'<p class="small muted">Leave a box empty if the person does not want that measurement.</p>'+
         (F.tried&&czMissing(F)?'<div class="note bad">Please complete the blood pressure items marked with *.</div>':"")+'<div class="row"><button class="pri tap" data-act="cznext">Next</button></div></div>';}
     else if(F.sub==="res"){const d=czDec(a);
       o+=who+'<div class="card"><h3>Tell the person</h3>'+(d?'<div class="big">'+d.s+"/"+d.di+"</div>"+(d.urg===1?'<div class="note bad"><b>EMERGENCY.</b> Phone the supervisor now. Do not leave until someone is taking the person to the health facility.</div>':d.urg===2?'<div class="note warn"><b>Referral.</b> Tell the supervisor about this person at the end of today\'s shift. The clinic will see the referral on its list.</div>':"")+say(esc(CZSAY[d.code]||CZSAY.ok)):say("We could not take your blood pressure today. A volunteer from the project will visit this house in about three months and can check it then."))+
         '<p class="small muted">Do not give any other medical advice. If the person asks a health question, say that the project volunteer or the health facility will answer it.</p><div class="row"><button class="pri tap" data-act="cznext">'+(pos<q8.length?"Next person":"Finish this household")+"</button></div></div>";}}
   else if(F.step==="end"){const out=F.ad.filter(x=>x.here==="n"&&+x.age>=CZ.full).length;
-    o+='<h1>Finish</h1><div class="card">'+say("Thank you. A volunteer from The Salvation Army health project will visit this house in about three months, to check blood pressure and to talk about staying healthy."+(out&&!F.revisit?" We will come back once to see the adults who are out today.":""))+
+    o+='<h1>Finish</h1><div class="card">'+say("Thank you. A volunteer from the health project will visit this house in about three months, to check blood pressure and to talk about staying healthy."+(out&&!F.revisit?" We will come back once to see the adults who are out today.":""))+
       (out&&!F.revisit?'<div class="note warn">'+out+" adult"+(out===1?"":"s")+" aged 35 or older "+(out===1?"is":"are")+" out. Ask when they are usually home, and write it here.</div>"+ctxt("cbTime",F.cbTime,"Best time to come back"):"")+
       '<div class="row"><button class="pri tap" data-act="czsave">Save this household</button></div></div>';}
   return o;}
@@ -122,7 +122,8 @@ function czPerson(h,a,F){let p=a.pid?IX.p[a.pid]:null;const seen=a.here==="y";
   if(!czFull(a))return;
   if(a.st){const st=a.st==="y",mi=a.mi==="y";p.cvd={st,mi,d:st||mi?TODAY:null,by:UI.who};}
   if(a.fam){p.fam=a.fam==="y";p.riskD=TODAY;}if(a.prev)p.prevSugar=a.prev==="y";if(a.preg)p.preg=a.preg==="y";
-  if(+a.ht>=100&&+a.ht<=230)p.ht=+a.ht;if(+a.waist>=40&&+a.waist<=200)p.waist=+a.waist;
+  const ht=imp()?(+a.htFt?inCm(+a.htFt*12+(+a.htIn||0)):0):+a.ht,wa=imp()?(+a.waistIn?inCm(+a.waistIn):0):+a.waist;
+  if(ht>=100&&ht<=230)p.ht=ht;if(wa>=40&&wa<=200)p.waist=wa;
   const d=czDec(a);if(d){p.bp.push({d:TODAY,s:d.s,di:d.di,by:UI.who,src:"census",raw:a.r.filter(x=>+x[0]&&+x[1]).map(x=>[+x[0],+x[1]])});
     if(d.urg===1||d.urg===2)S.ref.push({id:uid("r"),p:p.id,d:TODAY,by:UI.who,code:d.code,urg:d.urg});}}
 function czSave(){const F=UI.F;let h=F.hid?IX.hh[F.hid]:null;

@@ -112,6 +112,7 @@ function modReports(ids){let o="";const P=S.p.filter(p=>ids.has(IX.hh[p.hh].ln))
   return o;}
 
 /* settings */
+function unitSettings(){return "<div class='card'><h3>Units for height, waist and weight</h3><div class='seg'><button data-act='units' data-v='metric' class='"+(imp()?"":"on")+"'>Centimetres and kilograms</button><button data-act='units' data-v='us' class='"+(imp()?"on":"")+"'>Feet, inches and pounds</button></div><p class='small muted'>This changes only how workers type measurements, on every tablet after its next sync. Records are always kept in centimetres and kilograms, so the choice can be changed at any time. Blood sugar stays in mmol/L.</p></div>";}
 function modSettings(){const sw=(k,name,what)=>'<div class="q"><label class="t">'+name+'</label><p class="small muted">'+what+'</p><div class="seg"><button data-act="mod" data-k="'+k+'" data-v="on" class="'+(modOn(k)?"on":"")+'">On</button><button data-act="mod" data-k="'+k+'" data-v="off" class="'+(modOn(k)?"":"on")+'">Off</button></div></div>';
   return "<div class='card'><h3>Optional modules</h3>"+sw("tb","TB module","Symptom questions at home visits, a TB test referral, treatment support, three counselling pages and a report section.")+sw("hiv","HIV module","A yearly question about HIV testing with a referral on request, confidential support for people on ART who ask for it, two counselling pages and programme-level counts. No test result is ever recorded.")+
     "<p class='small muted'>Both are off unless switched on here. Every tablet follows this choice after its next sync. Switching a module off hides its screens and keeps its records; switching it on again brings them back. The text of both modules is a draft: "+MODDRAFT.toLowerCase()+".</p></div>";}
@@ -140,5 +141,6 @@ function modSeed(){const num=p=>+String(p.id).replace(/\D/g,"")||0,last={};for(c
 
 document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset,A=d.act;
   if(A==="mod"&&me().role==="admin"){CFG.mods=Object.assign({},CFG.mods,{[d.k]:d.v==="on"});index();UI.keep=true;UI.pg=null;return render();}
+  if(A==="units"&&me().role==="admin"){CFG.units=d.v==="us"?"us":"metric";UI.keep=true;return render();}
   if(A==="hvnew"&&modOn("hiv")){UI.pid=d.id;UI.F={pid:d.id,art:null,cons:null,lnOk:null,tried:false};UI.mode="hv";return render();}
   if(A==="savehv"&&modOn("hiv"))return saveHv();});

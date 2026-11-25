@@ -21,8 +21,8 @@ const IDB={db:null,
   open(){return new Promise(res=>{try{const r=indexedDB.open("cmd-register",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>{IDB.db=r.result;res(true);};r.onerror=()=>res(false);}catch(e){res(false);}});},
   get(k){return new Promise(res=>{try{const r=IDB.db.transaction("kv").objectStore("kv").get(k);r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null);}catch(e){res(null);}});},
   set(k,v){try{IDB.db.transaction("kv","readwrite").objectStore("kv").put(v,k);}catch(e){}}};
-const cfgPart=()=>({start:CFG.start,cut:CFG.adrs.cut,model:CFG.model,mods:CFG.mods});
-function applyCfg(c){if(!c)return;if(c.start)setStart(c.start);if(c.cut>0)CFG.adrs.cut=c.cut;if(c.model)Object.assign(CFG.model,c.model);CFG.mods={tb:!!(c.mods&&c.mods.tb),hiv:!!(c.mods&&c.mods.hiv)};}
+const cfgPart=()=>({start:CFG.start,cut:CFG.adrs.cut,model:CFG.model,mods:CFG.mods,units:CFG.units});
+function applyCfg(c){if(!c)return;if(c.start)setStart(c.start);if(c.cut>0)CFG.adrs.cut=c.cut;if(c.model)Object.assign(CFG.model,c.model);CFG.mods={tb:!!(c.mods&&c.mods.tb),hiv:!!(c.mods&&c.mods.hiv)};CFG.units=c.units==="us"?"us":"metric";}
 function store(){if(!live()||!IDB.db)return;const recs={};for(const ty of TYPES)recs[ty]=S[ty];
   IDB.set("state",{mode:L.mode,auth:L.auth,seq:L.seq,meta:L.meta,dirty:L.dirty,last:L.last,cfg:cfgPart(),w:S.w,recs});}
 function wipeRecords(){for(const ty of TYPES)S[ty].length=0;S.w.length=0;SNAP.clear();L.meta={};L.dirty={};L.seq=0;L.last=null;}
