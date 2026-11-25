@@ -50,7 +50,7 @@ const CZSAY={ok:"Your blood pressure today is normal. A volunteer from the proje
   emerg:"Your blood pressure needs attention today. Please go to the health facility now. I am calling my supervisor to help."};
 function czMissing(F){const a=F.ad[F.i];
   if(F.step==="arrive")return !F.out||(!F.gps&&!F.lm.trim())||(!!CZCB[F.out]&&!F.lm.trim())||(F.out==="lang"&&!(F.lang||"").trim());
-  if(F.step==="list")return !F.head.trim()||!F.nhis||F.kids===""||F.ad.some(x=>!x.name.trim()||!x.sex||!(+x.age>=18&&+x.age<=110)||!x.here);
+  if(F.step==="list")return (F.ad[0].name=F.head.trim(),!F.head.trim())||!F.nhis||F.kids===""||F.ad.some(x=>!x.name.trim()||!x.sex||!(+x.age>=18&&+x.age<=110)||!x.here);
   if(F.step==="person"&&F.sub==="here")return !a.here;
   if(F.step==="person"&&F.sub==="hx"){if(!a.dxH||!a.dxD||(a.dxH==="y"&&!a.rxH)||(a.dxD==="y"&&!a.rxD))return true;
     return czFull(a)&&(!a.st||!a.mi||!a.fam||!a.prev||(a.sex==="F"&&+a.age<50&&!a.preg));}
@@ -77,10 +77,10 @@ function vCz(){const F=UI.F,a=F.ad[F.i],miss=k=>F.tried&&k,q8=czQueue(F),pos=q8.
       q("Name of the head of the household",ctxt("head",F.head,"Name"),miss(!F.head.trim()))+q("A phone number for this household",ctxt("ph",F.ph,"Optional"))+
       q("Does the household have an active NHIS card?",cseg("nhis",[["y","Yes"],["n","No"],["u","Not sure"]],F.nhis),miss(!F.nhis))+
       q("How many children under 18 live here?",cnum("kids",F.kids,"0 if none",120),miss(F.kids===""))+"</div>";
-    o+='<div class="card"><h3>Every adult aged 18 or older who lives here</h3>'+say("Please tell me the name and age of each adult who usually sleeps in this house, starting with the head of the household. Include those who are out now.");
-    F.ad.forEach((x,i)=>{o+='<div class="q'+(miss(!x.name.trim()||!x.sex||!(+x.age>=18&&+x.age<=110)||!x.here)?" miss":"")+'"><label class="t">Adult '+(i+1)+'</label><div class="row"><div class="grow">'+ctxt("ad."+i+".name",x.name,"Name")+"</div>"+cnum("ad."+i+".age",x.age,"Age",90)+"</div>"+
-      '<div class="pick"><div><span class="lab'+(F.tried&&!x.sex?" need":"")+'">Sex</span>'+cseg("ad."+i+".sex",[["F","Woman"],["M","Man"]],x.sex)+'</div><div><span class="lab'+(F.tried&&!x.here?" need":"")+'">Home now?</span>'+cseg("ad."+i+".here",[["y","Here now"],["n","Out"]],x.here)+"</div>"+(F.ad.length>1?'<button class="link" data-act="czdel" data-i="'+i+'" style="margin-left:auto">Remove this adult</button>':"")+"</div></div>";});
-    o+='<div class="row"><button data-act="czadd">Add another adult</button></div>'+(F.tried&&czMissing(F)?'<div class="note bad">Please complete the items marked with *. An adult is 18 or older.</div>':"")+'<div class="row"><button class="pri tap" data-act="cznext">Next</button></div></div>';}
+    o+='<div class="card"><h3>Every adult aged 18 or older who lives here</h3>'+say("Please tell me the name and age of each adult who usually sleeps in this house. Include those who are out now.");F.ad[0].name=F.head.trim();
+    F.ad.forEach((x,i)=>{o+='<div class="q'+(miss(!x.name.trim()||!x.sex||!(+x.age>=18&&+x.age<=110)||!x.here)?" miss":"")+'"><label class="t">Adult '+(i+1)+(i?"":": the head of the household")+'</label><div class="row"><div class="grow">'+(i?ctxt("ad."+i+".name",x.name,"Name"):'<div id="czhead" class="fixed">'+(esc(F.head.trim())||'<span class="muted">Type the name of the head of the household above</span>')+"</div>")+"</div>"+cnum("ad."+i+".age",x.age,"Age",90)+"</div>"+(i?"":'<p class="small muted">The head is already on the list. Fill in the age, sex and whether he or she is home now.</p>')+
+      '<div class="pick"><div><span class="lab'+(F.tried&&!x.sex?" need":"")+'">Sex</span>'+cseg("ad."+i+".sex",[["F","Woman"],["M","Man"]],x.sex)+'</div><div><span class="lab'+(F.tried&&!x.here?" need":"")+'">Home now?</span>'+cseg("ad."+i+".here",[["y","Here now"],["n","Out"]],x.here)+"</div>"+(i?'<button class="link" data-act="czdel" data-i="'+i+'" style="margin-left:auto">Remove this adult</button>':"")+"</div></div>";});
+    o+='<div class="row"><button data-act="czadd">Add another adult who lives here</button></div>'+(F.tried&&czMissing(F)?'<div class="note bad">Please complete the items marked with *. An adult is 18 or older.</div>':"")+'<div class="row"><button class="pri tap" data-act="cznext">Next</button></div></div>';}
   else if(F.step==="person"){const who="<h1>"+esc(a.name)+'</h1><p class="muted">'+(a.sex==="F"?"Woman":"Man")+", "+esc(a.age)+" years. Person "+pos+" of "+q8.length+" to see in this household.</p>";
     if(F.sub==="here")o+=who+'<div class="card">'+q("Is this person home now?",cseg("ad."+F.i+".here",[["y","Yes"],["n","No"]],a.here),miss(!a.here),"This is the one call-back for this person. If the person is out again, the Leader Neighbor will see them later.")+'<div class="row"><button class="pri tap" data-act="cznext">Next</button></div></div>';
     else if(F.sub==="hx"){const P="ad."+F.i+".",full=czFull(a)||+a.age>=CZ.full;
@@ -207,14 +207,14 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
   if(!F||!F.cz)return;
   if(A==="czquit"){if(confirm("Stop and lose what you typed for this household?")){UI.F=null;UI.mode=null;}return render();}
   if(A==="czback"){const p=F.hist.pop();if(!p){if(confirm("Leave this household without saving?")){UI.F=null;UI.mode=null;}return render();}[F.step,F.i,F.sub]=p;F.tried=false;return render();}
-  if(A==="czadd"){F.ad.push(czAdult());UI.keep=true;return render();}
+  if(A==="czadd"){F.ad[0].name=F.head.trim();F.ad.push(czAdult());UI.keep=true;return render();}
   if(A==="czdel"){F.ad.splice(+d.i,1);UI.keep=true;return render();}
   if(A==="czyes"){czGo(F,"list");return render();}
   if(A==="czno"){F.out="ref";return czSave();}
   if(A==="czsave")return czSave();
   if(A==="cznext"){if(czMissing(F)){F.tried=true;UI.keep=true;return render();}
     if(F.step==="arrive"){if(F.out!=="home")return czSave();czGo(F,"consent");}
-    else if(F.step==="list"){F.ad.forEach(a=>{if(a.dxH===undefined)czAns(a);});const q8=czQueue(F);if(q8.length)czGo(F,"person",q8[0],"hx");else czGo(F,"end");}
+    else if(F.step==="list"){F.ad[0].name=F.head.trim();F.ad.forEach(a=>{if(a.dxH===undefined)czAns(a);});const q8=czQueue(F);if(q8.length)czGo(F,"person",q8[0],"hx");else czGo(F,"end");}
     else if(F.step==="person"){const a=F.ad[F.i];
       if(F.sub==="here"){if(a.here==="y")czGo(F,"person",F.i,"hx");else czNextPerson(F);}
       else if(F.sub==="hx"){if(czFull(a))czGo(F,"person",F.i,"ms");else czNextPerson(F);}
@@ -222,5 +222,5 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
       else czNextPerson(F);}
     return render();}});
 document.addEventListener("input",e=>{const el=e.target,d=el.dataset,F=UI.F;if(!F||!F.cz)return;
-  if(d.ci){setPath(F,d.ci,el.value);if(/\.r\.\d\.\d$/.test(d.ci)){const dy=$("#czdyn");if(dy){const a=F.ad[F.i],v=avgBP({r:a.r}),sig=(czDec(a)||{}).s+"/"+(czDec(a)||{}).di+"/"+((czDec(a)||{}).hi?1:0);if(dy.dataset.k!==sig){dy.dataset.k=sig;dy.innerHTML=czDyn(F);}const r3=$("#cr2");if(r3)r3.hidden=!v.need3;}}return;}
+  if(d.ci){setPath(F,d.ci,el.value);if(d.ci==="head"){F.ad[0].name=el.value.trim();const hd=$("#czhead");if(hd)hd.textContent=el.value.trim()||"Type the name of the head of the household above";}if(/\.r\.\d\.\d$/.test(d.ci)){const dy=$("#czdyn");if(dy){const a=F.ad[F.i],v=avgBP({r:a.r}),sig=(czDec(a)||{}).s+"/"+(czDec(a)||{}).di+"/"+((czDec(a)||{}).hi?1:0);if(dy.dataset.k!==sig){dy.dataset.k=sig;dy.innerHTML=czDyn(F);}const r3=$("#cr2");if(r3)r3.hidden=!v.need3;}}return;}
   if(d.cc){setPath(F,d.cc,el.checked);UI.keep=true;render();}});
