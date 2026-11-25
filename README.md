@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.21. The app opens on a welcome screen with two choices:
+Build 0.22. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -38,6 +38,7 @@ A referral stays open until the clinic records the person as seen, or a Trainer 
 - When the answer to "taking the medicine every day?" is No, the visit asks "Which ones are being missed?" from the medicines on the clinic's record (for every person, survivor or not). The answer is saved with the visit (`v.missed`).
 - The survivor version of the Household emergency plan page (`e_plan_s`) is shown at the first visit made while the person is flagged and at every third visit after. It comes after referral and medicine pages and counts toward the limit of three pages, so it waits for the next visit when those fill the limit.
 - Reports, section 4: survivors identified, survivors with a statin or aspirin recorded as prescribed, and survivors taking all their medicines every day.
+- From build 0.22: a survivor who says the medicine is not taken every day, or who has no medicine on the clinic's record and has not been seen at the facility since being flagged, gets a routine referral ("Survivor: medicine review"). The 30-day and 90-day limits on routine referrals apply, and none is added while another referral is open.
 - Leader Neighbors do not advise starting aspirin or any other medicine. No server change is needed for this build.
 
 ## The server (live mode)

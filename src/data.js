@@ -166,7 +166,7 @@ function decide(p,s,d,warn,preg,medNo,on){on=on||TODAY;
   if(!p.htn.dx&&hi){const before=p.bp.some(r=>elev(r)&&r.d!==on);
     return before?hold({urg:3,code:"confirm",t:"Refer to the facility for confirmation and treatment. The reading is raised on a second day.",refer:1}):{urg:0,code:"recheck",t:"Raised today. One reading does not show a condition. Check again at the next visit, within one month."};}
   return{urg:0,code:"ok",t:"Below 140 over 90. Praise the person."+(p.htn.dx?" Continue the medicine.":" Check again in about four months.")};}
-const REASON={emerg:"Emergency",preg:"Raised BP in pregnancy",prompt:"BP 180/110 or more",relink:"Back to care (diagnosed)",confirm:"BP raised twice: confirm",glu:"Sugar screen raised: confirm",gluhi:"Very high blood sugar",gluill:"High sugar with danger signs",glulo:"Low blood sugar",gluvlo:"Very low blood sugar",side:"Medicine side effects",feet:"Foot sore"};
+const REASON={emerg:"Emergency",preg:"Raised BP in pregnancy",prompt:"BP 180/110 or more",relink:"Back to care (diagnosed)",confirm:"BP raised twice: confirm",glu:"Sugar screen raised: confirm",gluhi:"Very high blood sugar",gluill:"High sugar with danger signs",glulo:"Low blood sugar",gluvlo:"Very low blood sugar",side:"Medicine side effects",survmed:"Survivor: medicine review",feet:"Foot sore"};
 
 /* ---------- example data (fictitious) ---------- */
 function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
