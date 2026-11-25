@@ -51,7 +51,7 @@ if(typeof module!=="undefined")module.exports={mapTrim,bboxKm2,RTYPES,PTYPES};
 /* the map now in use */
 const MAPS={cur:null,def:null,loading:false,v:"default"};
 function mapLoad(cb){if(MAPS.cur)return cb&&cb();if(MAPS.def){MAPS.cur=MAPS.def;return cb&&cb();}
-  if(MAPS.loading)return;MAPS.loading=true;const s=document.createElement("script");s.src="map/default.js";
+  if(MAPS.loading)return;MAPS.loading=true;const s=document.createElement("script");s.src="map/default.js?v=29";   // the number changes when the built-in map file changes, so that a stored older copy is not used
   s.onload=()=>{MAPS.loading=false;MAPS.def=window.CMD_MAP_DEFAULT;MAPS.cur=MAPS.cur||MAPS.def;cb&&cb();};s.onerror=()=>{MAPS.loading=false;MAPS.err=true;cb&&cb();};document.head.appendChild(s);}
 const mapIsDefault=()=>!MAPS.cur||MAPS.cur===MAPS.def||!MAPS.cur.meta;
 
