@@ -88,4 +88,15 @@ h2.rep{margin-top:10px;padding-top:10px;border-top:2px solid var(--line)}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
+/* Census screens (Enumerators): a different look, so that nobody confuses them with the home-visit screens. */
+body.census{--bg:#dcefe0;--accent:#1e6b3a;--info-bg:#d3ebd8;--sunk:#c7e2cd}
+body.census .bar{background:#1e6b3a;border-bottom-color:#1e6b3a;color:#fff}
+body.census .brand small{color:#d9efdf} body.census .bar select{color:#14302b}
+body.census .bar button.tab{color:#e4f3e7} body.census .bar button.tab.on{background:#fff;color:#14302b}
+body.census .brand::before{content:"CENSUS";display:inline-block;background:#ffd24d;color:#14302b;border-radius:6px;padding:1px 8px;margin-right:8px;font-size:13px;letter-spacing:.08em;vertical-align:1px}
+.say,.do{border-radius:var(--r);padding:12px 14px;font-size:18px;line-height:1.45;color:#14302b}
+.say{background:#fff3c4;border-left:6px solid #d99a00} .do{background:#dcebf7;border-left:6px solid #1c6aa8;font-size:16px}
+.say::before,.do::before{display:block;font-size:12px;font-weight:800;letter-spacing:.08em;margin-bottom:2px}
+.say::before{content:"SAY";color:#7a5600} .do::before{content:"DO";color:#174f7d}
+
 .pgpic{display:block;width:100%;max-width:560px;aspect-ratio:800/597;object-fit:cover;border-radius:10px;margin:0 auto 12px;background:#f1ece2}

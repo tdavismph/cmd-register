@@ -15,7 +15,7 @@ create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.cmd_workers (
   id           text primary key,
-  role         text not null check (role in ('admin','clinic','prom','lnt','ln')),
+  role         text not null check (role in ('admin','clinic','prom','lnt','ln','enum')),
   name         text not null,
   lnt_id       text,            -- for a Leader Neighbor: her Trainer
   prom_id      text,            -- for a Trainer: her Promoter
@@ -155,7 +155,7 @@ begin
     if coalesce(p_pin, '') <> '' or not w.active then delete from public.cmd_sessions where worker_id = v_id; end if;
     return jsonb_build_object('ok', true, 'worker', public.cmd_worker_json(w, true));
   end if;
-  if v_role not in ('clinic', 'prom', 'lnt', 'ln') or coalesce(trim(p_worker->>'name'), '') = '' or coalesce(length(p_pin), 0) < 6
+  if v_role not in ('clinic', 'prom', 'lnt', 'ln', 'enum') or coalesce(trim(p_worker->>'name'), '') = '' or coalesce(length(p_pin), 0) < 6
      or coalesce(length(trim(p_worker->>'code')), 0) < 3 then return jsonb_build_object('ok', false, 'error', 'bad_input'); end if;
   if v_role = 'lnt' then   -- a Trainer: belongs to a Promoter and leads a new Care Group
     v_prom := p_worker->>'prom';
@@ -226,8 +226,9 @@ begin
     v_ty := r->>'ty'; v_u := coalesce((r->>'u')::bigint, 0);
     if coalesce(r->>'id', '') = '' or v_ty not in ('hh','p','v','ref','ev','gm','q') or jsonb_typeof(r->'body') <> 'object' then k := k + 1; continue; end if;
     select * into o from public.cmd_workers where id = r->>'ln';
-    if not found or o.role not in ('ln', 'lnt') then k := k + 1; continue; end if;
-    v_lnt := case when o.role = 'ln' then o.lnt_id else o.id end;
+    if not found or o.role not in ('ln', 'lnt', 'enum') then k := k + 1; continue; end if;
+    -- a census household belongs to the Enumerator who entered it, and to no Care Group, until the administrator gives it to a Leader Neighbor
+    v_lnt := case when o.role = 'ln' then o.lnt_id when o.role = 'lnt' then o.id end;
     select prom_id into v_prom from public.cmd_workers where id = v_lnt;
     -- what each role may write
     ok := case me.role
@@ -236,13 +237,14 @@ begin
       when 'prom'   then v_prom = me.id and v_ty in ('p', 'v', 'ref', 'ev', 'q')
       when 'lnt'    then v_lnt = me.id and (v_ty <> 'q' or (o.role = 'ln' and o.id <> me.id))
       when 'ln'     then o.id = me.id and v_ty <> 'q'
+      when 'enum'   then o.id = me.id and v_ty in ('hh', 'p', 'ref')
       else false end;
     if ok and v_ty = 'q' and o.id = me.id then ok := false; end if;   -- nobody scores herself
-    if not ok then k := k + 1; continue; end if;
+    if ok is not true then k := k + 1; continue; end if;   -- "is not true" also rejects a comparison with an empty Trainer or Promoter
     select * into old_ from public.cmd_records where ty = v_ty and id = r->>'id';
     if found then
       -- the existing copy must also be inside the caller's scope (a record cannot be moved out of someone else's area)
-      if not (me.role in ('admin', 'clinic') or (me.role = 'prom' and old_.prom = me.id) or (me.role = 'lnt' and old_.lnt = me.id) or (me.role = 'ln' and old_.ln = me.id)) then k := k + 1; continue; end if;
+      if (me.role in ('admin', 'clinic') or (me.role = 'prom' and old_.prom = me.id) or (me.role = 'lnt' and old_.lnt = me.id) or (me.role in ('ln', 'enum') and old_.ln = me.id)) is not true then k := k + 1; continue; end if;
       if v_ty = 'p' then
         update public.cmd_records set body = public.cmd_merge_person(old_.body, r->'body', v_u >= old_.u), u = greatest(old_.u, v_u),
                ln = o.id, lnt = v_lnt, prom = v_prom, seq = nextval('public.cmd_seq'), updated_by = me.id, updated_at = now()
@@ -277,7 +279,7 @@ begin
     into out_
     from (select * from public.cmd_records t
            where t.seq > p_since
-             and (me.role in ('admin', 'clinic') or (me.role = 'prom' and t.prom = me.id) or (me.role = 'lnt' and t.lnt = me.id) or (me.role = 'ln' and t.ln = me.id))
+             and (me.role in ('admin', 'clinic') or (me.role = 'prom' and t.prom = me.id) or (me.role = 'lnt' and t.lnt = me.id) or (me.role in ('ln', 'enum') and t.ln = me.id))
            order by t.seq limit 1000) q;
   return out_;
 end $$;

@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.22. The app opens on a welcome screen with two choices:
+Build 0.23. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -40,6 +40,21 @@ A referral stays open until the clinic records the person as seen, or a Trainer 
 - Reports, section 4: survivors identified, survivors with a statin or aspirin recorded as prescribed, and survivors taking all their medicines every day.
 - From build 0.22: a survivor who says the medicine is not taken every day, or who has no medicine on the clinic's record and has not been seen at the facility since being flagged, gets a routine referral ("Survivor: medicine review"). The 30-day and 90-day limits on routine referrals apply, and none is added while another referral is open.
 - Leader Neighbors do not advise starting aspirin or any other medicine. No server change is needed for this build.
+
+### The census (from build 0.23)
+
+The census is done once, before Care Groups are formed, by temporary Enumerators working in pairs. Each pair has one sign-in name and one tablet (the administrator adds pairs on the Workers page). The census screens are green and marked CENSUS, with one step per screen, the words to say in yellow boxes and the actions in blue boxes.
+
+- **At the door:** the location (with its accuracy in metres), a description of the place, and the outcome: an adult is home, nobody home, refused, or vacant.
+- **Household:** head, phone, NHIS, the number of children under 18, and every adult aged 18 or older (name, sex, age, home now or out).
+- **Each adult aged 35 or older who is home:** history of hypertension, diabetes, stroke and heart attack (and whether medicine is taken), pregnancy for women under 50, the two diabetes family-history questions, two blood pressure readings (a third if they differ by more than 10), height and waist. Adults under 35 get the hypertension and diabetes questions only, and the rest if either answer is yes.
+- **Warning signs** are asked only when the reading is 180/110 or more. A referral is made at the census only for a warning sign, 180/110 or more, or raised pressure in pregnancy. Other raised readings wait for the Leader Neighbor's re-check.
+- **Call-backs:** a house with nobody home stays on the pair's call-back list. An adult aged 35 or older who is out gets one call-back, and is then left for the Leader Neighbor.
+- **Numbering:** each household gets a census number when it is saved (`C-` + three characters for the pair + a running number). The Care Group part is added when households are given to Leader Neighbors.
+- **Data:** `h.cen = {st, d, by, gps:{lat,lon,acc}, lm, ph, kids, tries, cbTime}`; a census household has `h.ln` set to the Enumerator's id. People get `p.cen`, `p.ht`, `p.waist`, and the census reading in `p.bp` with `src:"census"` and the raw readings in `raw`. A person already on treatment at the census has `rxPre:true`, and the census date stands in for the unknown start date.
+- **Administrator:** the Census tab shows progress by pair (completed, call-backs, refusals, location quality, share of readings ending in 0) and the counts needed to plan Care Groups. Census referrals appear on the clinic's and the administrator's Referrals lists.
+- Census households are not in the reports until they are given to Leader Neighbors. The map and the forming of Care Groups come in later builds.
+- **Server:** run `server/update-0.23.sql` once. It adds the Enumerator role and limits each pair to the households, people and referrals it entered.
 
 ## The server (live mode)
 

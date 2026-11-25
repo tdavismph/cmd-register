@@ -5,7 +5,7 @@
    see server/setup.sql. */
 // Public values, safe to publish (the same as the key every visitor's browser receives).
 const SERVER=window.CMD_SERVER||{url:"https://zxyftmpskbhtjretacig.supabase.co",key:"sb_publishable_aRJWlS41yCDBQLrI_J_HPQ_dqBQZfP5"};
-const TYPES=["hh","p","v","ref","ev","gm","q"];
+const TYPES=["hh","p","v","ref","ev","gm","q"];   // an Enumerator may send households, people and referrals only
 const L={mode:null,auth:null,seq:0,meta:{},dirty:{},last:null,msg:"",syncMsg:"",busy:false,welcome:"start"};
 const SNAP=new Map();   // record key -> JSON as last stored, to find records changed on this tablet
 const live=()=>L.mode==="live";
@@ -115,8 +115,8 @@ function vWorkersLive(){const g=r=>S.w.filter(w=>w.role===r&&w.active!==false),s
   const row=w=>"<tr><td>"+esc(ROLE[w.role])+"</td><td>"+esc(w.name)+"</td><td>"+esc(w.code||"")+"</td><td>"+(w.role==="lnt"?"Care Group "+w.cg+(w.prom&&IX.w[w.prom]?" · Promoter "+esc(IX.w[w.prom].name):""):w.role==="ln"?"Care Group "+w.cg+(w.lnt&&IX.w[w.lnt]?" · Trainer "+esc(IX.w[w.lnt].name):""):"")+"</td></tr>";
   const add=(title,role,extra)=>"<div class='card'><h3>"+title+"</h3><div class='row'><input id='nw_"+role+"_name' placeholder='Name' class='grow'><input id='nw_"+role+"_code' placeholder='Sign-in name' autocapitalize='none' style='width:150px'><input id='nw_"+role+"_pin' placeholder='PIN (6+ digits)' inputmode='numeric' style='width:140px'>"+(extra||"")+"<button data-act='addworker' data-role='"+role+"'>Add</button></div></div>";
   let o="<h1>Workers</h1>"+(L.msg?'<div class="note">'+esc(L.msg)+"</div>":"");L.msg="";
-  o+="<div class='card'>"+tbl(["Role","Name","Sign-in name","Covers"],["admin","prom","clinic","lnt","ln"].flatMap(r=>g(r).map(row)))+"</div>";
-  o+=add("Add a Promoter (CHO)","prom")+add("Add a clinic user","clinic");
+  o+="<div class='card'>"+tbl(["Role","Name","Sign-in name","Covers"],["admin","prom","clinic","lnt","ln","enum"].flatMap(r=>g(r).map(row)))+"</div>";
+  o+=add("Add a Promoter (CHO)","prom")+add("Add a clinic user","clinic")+add("Add an Enumerator pair (census). One sign-in name and one tablet for each pair","enum");
   o+=g("prom").length?add("Add a Leader Neighbor Trainer (starts a new Care Group)","lnt",sel("nw_lnt_sup",g("prom"),w=>"Promoter: "+w.name)):"<div class='card'><p class='muted'>Add a Promoter first. Each Trainer belongs to a Promoter.</p></div>";
   o+=g("lnt").length?add("Add a Leader Neighbor","ln",sel("nw_ln_sup",g("lnt"),w=>"Care Group "+w.cg+" · "+w.name)):"<div class='card'><p class='muted'>Add a Trainer first. Each Leader Neighbor belongs to a Trainer's Care Group.</p></div>";
   const all=S.w.filter(w=>w.role!=="admin"&&w.active!==false);
@@ -163,7 +163,8 @@ async function boot(){await IDB.open();const st=IDB.db?await IDB.get("state"):nu
 
 /* The welcome screen comes first; the app's own screens need a worker (example or signed in). */
 const renderApp=render;
-render=function(){if(!L.mode||(live()&&!(L.auth&&L.auth.token))){if(live())L.welcome="login";$("#app").innerHTML=vWelcome();return;}
+render=function(){if(!L.mode||(live()&&!(L.auth&&L.auth.token))){if(live())L.welcome="login";document.body.classList.remove("census");$("#app").innerHTML=vWelcome();return;}
   $("#role").hidden=live();renderApp();if(live())hdr();};
+const welcomeOff=()=>document.body.classList.remove("census");
 
 boot();
