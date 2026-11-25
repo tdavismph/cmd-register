@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.24.1. The app opens on a welcome screen with two choices:
+Build 0.24.2. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -45,7 +45,7 @@ A referral stays open until the clinic records the person as seen, or a Trainer 
 
 The census is done once, before Care Groups are formed, by temporary Enumerators working in pairs. Each pair has one sign-in name and one tablet (the administrator adds pairs on the Workers page). The census screens are green and marked CENSUS, with one step per screen, the words to say in yellow boxes and the actions in blue boxes.
 
-- **At the door:** the location (with its accuracy in metres), a description of the place, and the outcome: an adult is home and can talk, an adult is home but cannot talk now, only children are home, nobody home, refused, or vacant. The second, third and fourth go to the call-back list (`h.cen.why`).
+- **At the door:** the location (with its accuracy in metres), a description of the place, and the outcome: an adult is home and can talk, an adult is home but cannot talk now, the only adult home is too ill or unable to answer, no language in common (the language is recorded in `h.cen.lang`), only children are home, nobody home, refused, or vacant. All but the first and the last two go to the call-back list (`h.cen.why`).
 - **Household:** head, phone, NHIS, the number of children under 18, and every adult aged 18 or older (name, sex, age, home now or out).
 - **Each adult aged 35 or older who is home:** history of hypertension, diabetes, stroke and heart attack (and whether medicine is taken), pregnancy for women under 50, the two diabetes family-history questions, two blood pressure readings (a third if they differ by more than 10), height and waist. Adults under 35 get the hypertension and diabetes questions only, and the rest if either answer is yes.
 - **Warning signs** are asked only when the reading is 180/110 or more. A referral is made at the census only for a warning sign, 180/110 or more, or raised pressure in pregnancy. Other raised readings wait for the Leader Neighbor's re-check.
