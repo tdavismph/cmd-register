@@ -113,6 +113,14 @@ body.census .brand::before{content:"CENSUS";display:inline-block;background:#ffd
 .say::before,.do::before{display:block;font-size:12px;font-weight:800;letter-spacing:.08em;margin-bottom:2px}
 .say::before{content:"SAY";color:#7a5600} .do::before{content:"DO";color:#174f7d}
 
+/* census map */
+.mapwrap{position:relative} .mapcv{width:100%;display:block;border:1px solid var(--line);border-radius:var(--r);touch-action:none;background:#f4f1ea;cursor:grab}
+.mapbtn{position:absolute;top:8px;left:8px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 16px)} .mapbtn button{min-height:40px;padding:4px 12px;box-shadow:0 1px 3px rgba(0,0,0,.25);background:#fff;color:#14302b}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-right:8px} .lg i{width:14px;height:14px;border:1.6px solid #1d2a27;display:inline-block;flex:none}
+.lmap{height:58vh;min-height:320px;border-radius:var(--r);border:1px solid var(--line);z-index:0}
+a.btn{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);font-weight:700;color:inherit;text-decoration:none}
+button:disabled{opacity:.5;cursor:not-allowed}
+
 .pgpic{display:block;width:100%;max-width:560px;aspect-ratio:800/597;object-fit:cover;border-radius:10px;margin:0 auto 12px;background:#f1ece2}
 </style></head>
 <body>
@@ -518,10 +526,10 @@ const UI={who:"adm",tab:null,hh:null,pid:null,F:null,mode:null,area:"all",q:"",a
 const me=()=>IX.w[UI.who];
 const TABS={ln:[["today","Today"],["hhs","Households"],["group","Group lesson"],["reports","My results"],["pages","Counselling pages"],["account","Account"]],
   lnt:[["coach","My Care Group"],["refs","Referrals"],["hhs","Households"],["reports","Results"],["pages","Counselling pages"],["account","Account"]],
-  prom:[["screen","Screening day"],["recheck","BP re-checks"],["refs","Referrals"],["coach","Quality"],["reports","Reports"],["compare","Care Groups compared"],["pages","Counselling pages"],["account","Account"]],
+  prom:[["screen","Screening day"],["recheck","BP re-checks"],["cmap","Census map"],["refs","Referrals"],["coach","Quality"],["reports","Reports"],["compare","Care Groups compared"],["pages","Counselling pages"],["account","Account"]],
   clinic:[["refs","Referrals"],["patients","Patients"],["reports","Reports"],["pages","Counselling pages"],["account","Account"]],
-  admin:[["reports","Reports"],["compare","Care Groups compared"],["refs","Referrals"],["cprog","Census"],["workers","Workers"],["settings","Settings"],["pages","Counselling pages"]],
-  enum:[["census","Census"],["callbacks","Call-backs"],["chelp","How to"],["account","Account"]]};
+  admin:[["reports","Reports"],["compare","Care Groups compared"],["refs","Referrals"],["cprog","Census"],["cmap","Census map"],["workers","Workers"],["settings","Settings"],["pages","Counselling pages"]],
+  enum:[["census","Census"],["callbacks","Call-backs"],["cmap","Map"],["chelp","How to"],["account","Account"]]};
 const ROLE={admin:"Administrator",clinic:"Clinic",prom:"Promoter (CHO)",lnt:"Leader Neighbor Trainer",ln:"Leader Neighbor",enum:"Enumerator"};
 const lnsOf=w=>w.role==="ln"||w.role==="enum"?[w.id]:w.role==="lnt"?S.w.filter(x=>x.lnt===w.id).map(x=>x.id):w.role==="prom"&&live()?S.w.filter(x=>x.role==="ln"&&(IX.w[x.lnt]||{}).prom===w.id).map(x=>x.id):S.w.filter(x=>x.role==="ln").map(x=>x.id); // live: a Promoter sees only her Trainers' Care Groups, as on the server
 function scope(){const w=me();let ids=lnsOf(w);if(UI.area!=="all"){if(UI.area.startsWith("cg"))ids=ids.filter(i=>IX.w[i].cg===+UI.area.slice(2));else if(ids.includes(UI.area))ids=[UI.area];}return new Set(ids);}
@@ -914,15 +922,15 @@ function vSettings(){const M=CFG.model,row=(l,v)=>"<tr><td>"+l+"</td><td class='
   return "<h1>Settings</h1>"+modSettings()+unitSettings()+"<div class='card'><h3>Rules built into the visit (demonstration narrative, section 4.4)</h3>"+tbl(["Rule","#Value"],[row("Raised blood pressure","140/90 or more"),row("Refer promptly, with no warning sign","180/110 or more"),row("Pregnant: refer now","140/90 or more, one reading"),row("Pregnant: emergency","160/110 or more"),row("Never diagnosed: refer","raised on two days"),row("Already diagnosed: refer back","raised once, or off the medicine"),row("Any warning sign","emergency, same day"),row("Stroke or heart attack survivor","monthly visits; medicine question at every visit; emergency plan page at the first visit and every third visit after"),row("Survivor not taking the medicine every day, or with no medicine on the clinic's record","routine referral for a review of medicines"),row("Fingerstick blood sugar: emergency, same day",CFG.glu.emerg+" or more; "+CFG.glu.sick+" or more with a danger sign; below "+CFG.glu.vlow.toFixed(1)+"; below "+CFG.glu.low+" with a danger sign (mmol/L)"),row("Fingerstick blood sugar: low, give sugar and refer within days","below "+CFG.glu.low+" mmol/L"),row("No new routine referral after a facility visit","for "+CFG.noRefer+" days"),row("No new routine referral after a referral is closed as declined, unless the person is now willing","for "+CFG.declineWait+" days"),row("Re-check after a normal reading, and screening visits","every "+CFG.recheck+" days"),row("Fingerstick sugar raised (random / fasting)",CFG.glu.rand+" / "+CFG.glu.fast.toFixed(1)+" mmol/L"),row("African Diabetes Risk Score that counts as raised","above "+CFG.adrs.cut),row("Raised waist (men / women)",CFG.waist.M+" / "+CFG.waist.F+" cm")])+"<p class='small muted'>The blood pressure rules follow the narrative, which cites the WHO HEARTS and PEN protocols and the Ghana Standard Treatment Guidelines. The sugar values are the WHO diagnostic values. The risk score and waist values are drafts. The "+CFG.noRefer+"-day limit on routine referrals is a project decision (20 November 2026); emergencies, readings of 180/110 or more, pregnancy, foot sores and raised sugar screens are always referred. All need review by clinical staff in Ghana before field use.</p></div>"+
   "<div class='card'><h3>Assumptions for the modelled events averted</h3><div class='row'><label>Major cardiovascular events per 100 people with hypertension per year "+num("m.cvdRate",M.cvdRate,"",90)+"</label></div><div class='row'><label>Deaths per 100 people with hypertension per year "+num("m.deathRate",M.deathRate,"",90)+"</label></div><p class='small muted'>These are planning figures, not Ghanaian data. Replace them when a local source is agreed.</p></div>"+
   "<div class='card'><h3>Diabetes-risk flag</h3><div class='row'><label>African Diabetes Risk Score counted as raised when above "+num("a.cut",CFG.adrs.cut,"",90)+"</label></div><p class='small muted'>The score uses age, waist and hypertension (Mayige 2014; derived in Tanzania, Senegal and Guinea). An adult aged 35 or older with a raised score moves to monthly visits. The published cut-off for South Africa is 1.46. The project uses 3.5, so that each Leader Neighbor's monthly cohort stays near 12 people; neither value has been checked in Ghana. A higher cut-off flags fewer people. Every adult aged 35 or older has the fingerstick test whatever the score.</p></div>"+
-  (live()?startCard()+liveCard():"<div class='card'><h3>Data</h3><p class='small muted'>Build 0.25.1, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>");}
+  (live()?startCard()+liveCard():"<div class='card'><h3>Data</h3><p class='small muted'>Build 0.27, example mode. All people and results are fictitious. Records entered here stay on this device until the page is closed, and nothing is sent to a server.</p></div>");}
 
 /* ---------- frame ---------- */
 function render(){const w=me(),y=window.scrollY;const tabs=TABS[w.role].filter(t=>t[0]!=="account"||live());if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
   $("#who").textContent=ROLE[w.role]+(w.role==="admin"?"":": "+w.name)+(live()?"":" · example data");
   document.body.classList.toggle("census",w.role==="enum");
   $("#nav").innerHTML=UI.mode==="cz"?"":tabs.map(t=>'<button class="tab'+(t[0]===UI.tab&&!UI.mode?" on":"")+'" data-tab="'+t[0]+'">'+t[1]+"</button>").join("");
-  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings,pages:vPages,compare:vCompare,account:vAccount,census:vCensus,callbacks:vCallbacks,chelp:vCHelp,cprog:vCProg};
-  const M={hh:vHh,person:vPerson,visit:vVisit,clinic:vClinic,event:vEvent,qivc:vQivc,addhh:vAddHh,fu:vFu,cz:vCz,hv:vHv};
+  const V={today:vToday,hhs:vHhs,group:vGroup,reports:vReports,coach:vCoach,refs:vRefs,screen:vScreen,recheck:vRecheck,patients:vPatients,workers:vWorkers,settings:vSettings,pages:vPages,compare:vCompare,account:vAccount,census:vCensus,callbacks:vCallbacks,chelp:vCHelp,cprog:vCProg,cmap:vCMap};
+  const M={hh:vHh,person:vPerson,visit:vVisit,clinic:vClinic,event:vEvent,qivc:vQivc,addhh:vAddHh,fu:vFu,cz:vCz,hv:vHv,mapsel:vMapSel};
   $("#app").innerHTML=(UI.mode?M[UI.mode]:V[UI.tab])();if(UI.keep){window.scrollTo(0,y);UI.keep=false;}else window.scrollTo(0,0);}
 function roleSel(){const g=(r,l)=>'<optgroup label="'+l+'">'+S.w.filter(w=>w.role===r).map(w=>'<option value="'+w.id+'">'+esc(r==="admin"?"Administrator":r==="clinic"?"Clinic":w.name+(w.cg?" (Care Group "+w.cg+")":""))+"</option>").join("")+"</optgroup>";
   $("#role").innerHTML=g("admin","Administrator")+g("prom","Promoters (CHO)")+g("clinic","Clinic")+g("lnt","Leader Neighbor Trainers")+g("ln","Leader Neighbors")+g("enum","Enumerators (census)");$("#role").value=UI.who;}
@@ -1116,6 +1124,213 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
   if(A==="units"&&me().role==="admin"){CFG.units=d.v==="us"?"us":"metric";UI.keep=true;return render();}
   if(A==="hvnew"&&modOn("hiv")){UI.pid=d.id;UI.F={pid:d.id,art:null,cons:null,lnOk:null,tried:false};UI.mode="hv";return render();}
   if(A==="savehv"&&modOn("hiv"))return saveHv();});
+/* ---------- census map ----------
+   Background: building outlines and roads from OpenStreetMap (© OpenStreetMap contributors, ODbL), trimmed to a compact form.
+   The built-in background is Nima and Mamobi, Accra (map/default.js). The administrator can replace it (see "map area" below);
+   a replacement is kept in Supabase and on each tablet. Household squares are drawn from each household's own location (h.cen.gps),
+   so changing the background never moves or changes them.
+   Trimmed map: {f:1, bbox:[south,west,north,east], b:[building,...], r:[[roadType,name,line],...], nb, nr, meta}
+   A building or line is a flat list of whole numbers: x,y of the first point (1 unit = 0.00001 degree, about 1 m, from the south-west corner), then the steps to each next point. */
+const RTYPES=["trunk","primary","secondary","tertiary","unclassified","residential","living_street","service","pedestrian","footway","path","steps","track"];
+const MAPMAX=25;          // largest map area, km2
+const MAPOSM="© OpenStreetMap contributors";
+const bboxKm2=b=>Math.abs((b[2]-b[0])*111.32*(b[3]-b[1])*111.32*Math.cos((b[0]+b[2])/2*Math.PI/180));
+/* Trim raw OpenStreetMap data (an Overpass reply, or a GeoJSON file from overpass-turbo) to the compact form. */
+function mapTrim(raw,bbox){const B=[],R=[];
+  const add=(tags,pts)=>{if(!tags||!pts||pts.length<2)return;if(tags.building){B.push(pts);return;}
+    let t=tags.highway;if(!t)return;t=String(t).replace(/_link$/,"");const i=RTYPES.indexOf(t);if(i<0)return;R.push([i,tags.name||0,pts]);};
+  if(raw&&Array.isArray(raw.elements)){for(const e of raw.elements)if(e.type==="way"&&e.geometry)add(e.tags,e.geometry.map(g=>[g.lon,g.lat]));}
+  else if(raw&&Array.isArray(raw.features)){for(const f of raw.features){const g=f.geometry,p=f.properties||{};if(!g)continue;
+      if(g.type==="Polygon")add(p,g.coordinates[0]);else if(g.type==="MultiPolygon")for(const q of g.coordinates)add(p,q[0]);
+      else if(g.type==="LineString")add(p,g.coordinates);else if(g.type==="MultiLineString")for(const q of g.coordinates)add(p,q);}}
+  else throw new Error("not_map");
+  if(!bbox){// A file has no rectangle of its own. Take it from where the buildings are (or the road points when there are no buildings),
+    // leaving out the outermost 0.5% on each side, because long roads and a few stray buildings reach far beyond the area that was asked for.
+    const P=B.length?B.map(a=>a[0]):R.flatMap(r=>r[2]);if(!P.length)throw new Error("empty");
+    const la=P.map(p=>p[1]).sort((x,y)=>x-y),lo=P.map(p=>p[0]).sort((x,y)=>x-y),q=(a,f)=>a[Math.min(a.length-1,Math.max(0,Math.round(f*(a.length-1))))],m=.0003;
+    bbox=[q(la,.005)-m,q(lo,.005)-m,q(la,.995)+m,q(lo,.995)+m];}
+  const s0=bbox[0],w0=bbox[1],enc=(pts,ring)=>{const q=[];let lx=null,ly=null;
+      for(const p of pts){const x=Math.round((p[0]-w0)*1e5),y=Math.round((p[1]-s0)*1e5);if(x===lx&&y===ly)continue;q.push([x,y]);lx=x;ly=y;}
+      if(ring&&q.length>1&&q[0][0]===q[q.length-1][0]&&q[0][1]===q[q.length-1][1])q.pop();
+      // drop points that lie on a straight line between their neighbours (within about 1 m)
+      const k=[];for(let i=0;i<q.length;i++){const a=k[k.length-1],b=q[i],c=q[i+1]||(ring?q[0]:null);
+        if(a&&c&&i<q.length-(ring?0:1)){const dx=c[0]-a[0],dy=c[1]-a[1],L=Math.hypot(dx,dy);if(L>0&&Math.abs((b[0]-a[0])*dy-(b[1]-a[1])*dx)/L<=1)continue;}k.push(b);}
+      if(k.length<(ring?3:2))return null;const o=[k[0][0],k[0][1]];for(let i=1;i<k.length;i++)o.push(k[i][0]-k[i-1][0],k[i][1]-k[i-1][1]);return o;};
+  const b=B.map(p=>enc(p,true)).filter(Boolean),r=R.map(x=>{const l=enc(x[2],false);return l?[x[0],x[1],l]:null;}).filter(Boolean);
+  return{f:1,bbox:bbox.map(x=>+(+x).toFixed(5)),b,r,nb:b.length,nr:r.length};}
+if(typeof module!=="undefined")module.exports={mapTrim,bboxKm2,RTYPES};
+
+/* the map now in use */
+const MAPS={cur:null,def:null,loading:false,v:"default"};
+function mapLoad(cb){if(MAPS.cur)return cb&&cb();if(MAPS.def){MAPS.cur=MAPS.def;return cb&&cb();}
+  if(MAPS.loading)return;MAPS.loading=true;const s=document.createElement("script");s.src="map/default.js";
+  s.onload=()=>{MAPS.loading=false;MAPS.def=window.CMD_MAP_DEFAULT;MAPS.cur=MAPS.cur||MAPS.def;cb&&cb();};s.onerror=()=>{MAPS.loading=false;MAPS.err=true;cb&&cb();};document.head.appendChild(s);}
+const mapIsDefault=()=>!MAPS.cur||MAPS.cur===MAPS.def||!MAPS.cur.meta;
+
+/* drawing */
+const MV={};   // view state per canvas id: {cx,cy,k}
+function mapPrep(M){if(M._g)return;const g=new Map(),C=500;M._c=C;M._kx=Math.cos((M.bbox[0]+M.bbox[2])/2*Math.PI/180);
+  M.b.forEach((p,i)=>{const k=Math.floor(p[0]/C)+","+Math.floor(p[1]/C);(g.get(k)||g.set(k,[]).get(k)).push(i);});M._g=g;
+  M._w=(M.bbox[3]-M.bbox[1])*1e5;M._h=(M.bbox[2]-M.bbox[0])*1e5;}
+const RSTY=[[7,"#f3c98b"],[6,"#f6d9a3"],[5,"#f9e7b8"],[4,"#ffffff"],[3,"#ffffff"],[3,"#ffffff"],[3,"#ffffff"],[2,"#ffffff"],[2,"#ece7dc"],[1,"#c9b8a0"],[1,"#c9b8a0"],[1,"#c9b8a0"],[1,"#d8cdb8"]];
+function mapDraw(cv,M,items,sel){mapPrep(M);const st=MV[cv.id],dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+  const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.fillStyle="#f4f1ea";c.fillRect(0,0,W,H);
+  const kx=M._kx,k=st.k,X=x=>(x*kx-st.cx)*k+W/2,Y=y=>H/2-(y-st.cy)*k,x0=(st.cx-W/2/k)/kx,x1=(st.cx+W/2/k)/kx,y0=st.cy-H/2/k,y1=st.cy+H/2/k;
+  // the map area
+  c.strokeStyle="#b9b2a3";c.setLineDash([6,5]);c.lineWidth=1;c.strokeRect(X(0),Y(M._h),M._w*kx*k,M._h*k);c.setLineDash([]);
+  // roads: casing first, then fill, widest last
+  const line=p=>{let x=p[0],y=p[1];c.moveTo(X(x),Y(y));for(let i=2;i<p.length;i+=2){x+=p[i];y+=p[i+1];c.lineTo(X(x),Y(y));}};
+  c.lineCap="round";c.lineJoin="round";
+  for(const pass of [0,1])for(let t=RTYPES.length-1;t>=0;t--){const w=Math.max(1,RSTY[t][0]*Math.min(2.2,Math.max(.35,k*2.2)));if(pass===0&&w<2)continue;
+    c.beginPath();for(const r of M.r)if(r[0]===t){const p=r[2];if(p[0]<x0-600||p[0]>x1+600||p[1]<y0-600||p[1]>y1+600){let x=p[0],y=p[1],inn=false;for(let i=2;i<p.length&&!inn;i+=2){x+=p[i];y+=p[i+1];inn=x>=x0&&x<=x1&&y>=y0&&y<=y1;}if(!inn)continue;}line(p);}
+    c.strokeStyle=pass?RSTY[t][1]:"#cfc6b4";c.lineWidth=pass?w:w+1.6;c.stroke();}
+  // buildings
+  const C=M._c;c.fillStyle="#ddd6c8";c.strokeStyle="#b3aa98";c.lineWidth=.7;const small=k<.22;c.beginPath();
+  for(let gx=Math.floor(x0/C)-1;gx<=Math.floor(x1/C)+1;gx++)for(let gy=Math.floor(y0/C)-1;gy<=Math.floor(y1/C)+1;gy++){const L=M._g.get(gx+","+gy);if(!L)continue;
+    for(const i of L){const p=M.b[i];if(small){c.rect(X(p[0])-1,Y(p[1])-1,2,2);continue;}let x=p[0],y=p[1];c.moveTo(X(x),Y(y));for(let j=2;j<p.length;j+=2){x+=p[j];y+=p[j+1];c.lineTo(X(x),Y(y));}c.closePath();}}
+  c.fill();if(!small)c.stroke();
+  // households
+  const s=Math.max(9,Math.min(16,k*14)),hit=[];
+  (items||[]).forEach(it=>{const x=X((it.lon-M.bbox[1])*1e5)+(it.dx||0)*s*.8,y=Y((it.lat-M.bbox[0])*1e5)+(it.dy||0)*s*.8;if(x<-20||x>W+20||y<-20||y>H+20)return;
+    c.beginPath();c.rect(x-s/2,y-s/2,s,s);if(it.fill){c.fillStyle=it.fill;c.fill();}else{c.fillStyle="rgba(255,255,255,.75)";c.fill();}
+    c.lineWidth=it.id===sel?3.5:1.6;c.strokeStyle=it.id===sel?"#000":"#1d2a27";c.stroke();hit.push([x,y,it.id]);});
+  cv._hit=hit;
+  c.font="11px system-ui,sans-serif";const tw=c.measureText(MAPOSM).width;c.fillStyle="rgba(255,255,255,.85)";c.fillRect(W-tw-12,H-20,tw+12,20);c.fillStyle="#333";c.fillText(MAPOSM,W-tw-6,H-6);}
+function mapFit(id,M,items,W,H){mapPrep(M);let x0=0,x1=M._w,y0=0,y1=M._h;
+  const P=(items||[]).map(it=>[(it.lon-M.bbox[1])*1e5,(it.lat-M.bbox[0])*1e5]);
+  if(P.length){x0=Math.min(...P.map(p=>p[0]))-120;x1=Math.max(...P.map(p=>p[0]))+120;y0=Math.min(...P.map(p=>p[1]))-120;y1=Math.max(...P.map(p=>p[1]))+120;}
+  MV[id]={cx:(x0+x1)/2*M._kx,cy:(y0+y1)/2,k:Math.min(W/((x1-x0)*M._kx||1),H/((y1-y0)||1))*.94};}
+/* attach a map to a canvas already in the page */
+function mapMount(id,M,items,onPick,fitAll){const cv=document.getElementById(id);if(!cv||!M)return;
+  if(!MV[id]||MV[id].m!==M){mapFit(id,M,fitAll?null:items,cv.clientWidth,cv.clientHeight);MV[id].m=M;}
+  const st=MV[id],draw=()=>{if(!cv._raf)cv._raf=requestAnimationFrame(()=>{cv._raf=0;mapDraw(cv,M,items,st.sel);});};draw();
+  const pts=new Map();let moved=0,pd=0;
+  const zoom=(f,px,py)=>{const W=cv.clientWidth,H=cv.clientHeight,k2=Math.max(.02,Math.min(12,st.k*f));const wx=st.cx+(px-W/2)/st.k,wy=st.cy-(py-H/2)/st.k;st.cx=wx-(px-W/2)/k2;st.cy=wy+(py-H/2)/k2;st.k=k2;draw();};
+  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.offsetX,e.offsetY]);moved=0;if(pts.size===2){const a=[...pts.values()];pd=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);}};
+  cv.onpointermove=e=>{const p=pts.get(e.pointerId);if(!p)return;const dx=e.offsetX-p[0],dy=e.offsetY-p[1];pts.set(e.pointerId,[e.offsetX,e.offsetY]);
+    if(pts.size===1){st.cx-=dx/st.k;st.cy+=dy/st.k;moved+=Math.abs(dx)+Math.abs(dy);draw();}
+    else if(pts.size===2){const a=[...pts.values()],d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);if(pd>0)zoom(d/pd,(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2);pd=d;moved=99;}};
+  cv.onpointerup=cv.onpointercancel=e=>{pts.delete(e.pointerId);if(moved<6&&onPick){let best=null,bd=22;for(const h of cv._hit||[]){const d=Math.hypot(h[0]-e.offsetX,h[1]-e.offsetY);if(d<bd){bd=d;best=h[2];}}st.sel=best;draw();onPick(best);}};
+  cv.onwheel=e=>{e.preventDefault();zoom(e.deltaY<0?1.25:.8,e.offsetX,e.offsetY);};
+  cv._zoom=f=>zoom(f,cv.clientWidth/2,cv.clientHeight/2);cv._fit=all=>{mapFit(id,M,all?null:items,cv.clientWidth,cv.clientHeight);const n=MV[id];st.cx=n.cx;st.cy=n.cy;st.k=n.k;MV[id]=st;draw();};}
+const mapBox=(id,h)=>'<div class="mapwrap"><canvas id="'+id+'" class="mapcv" style="height:'+(h||"62vh")+'"></canvas><div class="mapbtn"><button data-act="mapz" data-id="'+id+'" data-v="in" aria-label="Zoom in">+</button><button data-act="mapz" data-id="'+id+'" data-v="out" aria-label="Zoom out">−</button><button data-act="mapz" data-id="'+id+'" data-v="fit">Households</button><button data-act="mapz" data-id="'+id+'" data-v="all">Whole area</button></div></div><p class="small muted">Map data '+MAPOSM+". Drag to move the map. Pinch, or use + and −, to zoom.</p>";
+
+/* household squares */
+const MCOL={none:"#2e9a5b",htn:"#2a6fdb",dm:"#d8402f",both:"#8a41c9",vac:"#9aa3a0"};
+function mapItems(){const r=me().role,ids=scope(),full=r==="admin"||r==="prom",out=[],seen={};
+  for(const h of S.hh){const g=h.cen&&h.cen.gps;if(!g)continue;const own=(IX.w[h.ln]||{}).role;
+    if(!(r==="admin"||(r==="prom"&&(own==="enum"||ids.has(h.ln)))||(r==="enum"&&h.ln===UI.who)))continue;
+    const ps=(IX.hhP[h.id]||[]).filter(alive),H=ps.some(p=>p.htn.dx),D=ps.some(p=>p.dm.dx),st=h.cen.st;
+    let cls=st==="vac"?"vac":st!=="done"?"open":!full?"none":H&&D?"both":H?"htn":D?"dm":"none";
+    const key=g.lat.toFixed(5)+","+g.lon.toFixed(5),n=seen[key]=(seen[key]||0)+1,a=n>1?(n-2)*2.4:0;   // houses at the same spot are fanned out a little
+    out.push({id:h.id,lat:g.lat,lon:g.lon,fill:cls==="open"?null:MCOL[cls],cls,dx:n>1?Math.cos(a)*(1+Math.floor((n-2)/6)):0,dy:n>1?Math.sin(a)*(1+Math.floor((n-2)/6)):0});}
+  return out;}
+function mapLegend(full){const sq=(c,t)=>'<span class="lg"><i style="background:'+(c||"transparent")+'"></i>'+t+"</span>";
+  return '<div class="row">'+(full?sq(MCOL.none,"Censused, no patient")+sq(MCOL.htn,"Hypertension")+sq(MCOL.dm,"Diabetes")+sq(MCOL.both,"Both"):sq(MCOL.none,"Completed"))+sq(MCOL.vac,"Vacant, or not a home")+sq(null,"Visited, not completed (call back, or refused)")+"</div>";}
+function vCMap(){const r=me().role,full=r==="admin"||r==="prom";let o="<h1>Census map</h1>";
+  if(UI.note){o+='<div class="note '+(UI.note[1]||"")+'">'+esc(UI.note[0])+"</div>";UI.note=null;}
+  if(!MAPS.cur){if(MAPS.err)return o+'<div class="note bad">The map could not be loaded. Connect to the internet once and open this page again.</div>'+(r==="admin"?mapAreaCard():"");
+    mapLoad(()=>{if(UI.tab==="cmap"&&!UI.mode)render();});return o+'<div class="note">Loading the map…</div>';}
+  const items=mapItems(),noLoc=S.hh.filter(h=>h.cen&&!h.cen.gps&&(r!=="enum"||h.ln===UI.who)).length,M=MAPS.cur;
+  const outside=items.filter(i=>i.lat<M.bbox[0]||i.lat>M.bbox[2]||i.lon<M.bbox[1]||i.lon>M.bbox[3]).length;
+  o+="<p class='muted'>"+items.length+" household"+(items.length===1?"":"s")+" with a location."+(noLoc?" "+noLoc+" recorded without a location, so not on the map.":"")+(outside?" "+outside+" lie outside the map area and are drawn on a blank background.":"")+(full?" The colours for hypertension and diabetes are shown only to the Administrator and the Promoters.":"")+"</p>";
+  o+=mapBox("cmap")+mapLegend(full)+'<div id="mapinfo"></div>';
+  if(r==="admin")o+=mapAreaCard();
+  setTimeout(()=>mapMount("cmap",M,items,mapPick),0);return o;}
+function mapPick(id){const el=$("#mapinfo");if(!el)return;if(!id){el.innerHTML="";return;}const h=IX.hh[id],ps=IX.hhP[id]||[],full=["admin","prom"].includes(me().role);
+  el.innerHTML='<div class="card"><h2>'+esc(h.head)+' <span class="muted small">'+esc(h.no)+"</span></h2><div class='row'>"+chip(CST[h.cen.st])+(h.cen.st==="cb"&&h.cen.why?chip([CZCB[h.cen.why],"warn"]):"")+chip(["Location accurate to about "+Math.round(h.cen.gps.acc)+" m",h.cen.gps.acc<=CZ.good?"good":h.cen.gps.acc<=CZ.poor?"warn":"bad"])+"</div><p class='small'>"+(h.cen.lm?esc(h.cen.lm)+". ":"")+fmtD(h.cen.d)+", "+esc((IX.w[h.cen.by]||{}).name||"")+"."+(h.cen.st==="done"?" "+ps.length+" adult"+(ps.length===1?"":"s")+" listed.":"")+"</p>"+
+    (full&&h.cen.st==="done"?"<p class='small'>"+ps.filter(alive).map(p=>pLink(p)+" ("+p.age+")").join(", ")+"</p>":"")+"</div>";}
+if(typeof document!=="undefined")document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.dataset.act!=="mapz")return;const cv=document.getElementById(b.dataset.id);if(!cv||!cv._zoom)return;const v=b.dataset.v;if(v==="in")cv._zoom(1.5);else if(v==="out")cv._zoom(1/1.5);else cv._fit(v==="all");});
+/* ---------- census map area (administrator) ----------
+   The administrator can replace the built-in background (Nima and Mamobi) with another area: drag a rectangle on a map,
+   fetch buildings and roads from OpenStreetMap through the Overpass API, check the preview, and use it.
+   The trimmed map is stored on the server in pieces (cmd_map_put) and each tablet downloads it once (mapSync). */
+const OVERPASS=["https://overpass-api.de/api/interpreter","https://overpass.private.coffee/api/interpreter"];
+const MAPPIECE=350000;    // characters in one piece sent to the server
+const MAPFEW=20;          // fewer buildings than this per km2: warn that coverage may be poor
+const mapQuery=b=>"[out:json][timeout:90];(way[\"building\"]("+b.join(",")+");way[\"highway\"]("+b.join(",")+"););out geom;";
+const mapMetaTxt=M=>M&&M.meta?"Chosen by "+esc(M.meta.by||"")+" on "+esc(new Date(M.meta.at).toLocaleString())+" ("+(M.meta.src==="file"?"from an uploaded file":"fetched from OpenStreetMap")+")":"The built-in map of Nima and Mamobi, Accra";
+function mapAreaCard(){const M=MAPS.cur;
+  return '<div class="card"><h3>Census map area</h3>'+(M?"<p><b>"+(mapIsDefault()?"Built-in map: Nima and Mamobi, Accra":"Map chosen for this project")+"</b></p><p class='small'>"+mapMetaTxt(M)+". About "+bboxKm2(M.bbox).toFixed(1)+" square kilometres, "+M.nb.toLocaleString()+" buildings and "+M.nr.toLocaleString()+" roads and paths. Corners: "+M.bbox[0].toFixed(4)+", "+M.bbox[1].toFixed(4)+" to "+M.bbox[2].toFixed(4)+", "+M.bbox[3].toFixed(4)+".</p>":"")+
+    '<div class="row"><button class="pri" data-act="maparea">Choose a new map area</button><a class="btn" href="docs/map-area-guide.pdf" target="_blank" rel="noopener">Instructions (PDF)</a></div>'+
+    '<div class="row"><button data-act="mapfile">Upload a map file (GeoJSON)</button>'+(mapIsDefault()?"":'<button data-act="mapdefault">Restore default map</button>')+'</div><input type="file" id="mapfile" accept=".geojson,.json,application/json,application/geo+json" hidden>'+
+    "<p class='small muted'>Only the Administrator can change the map area. The households already recorded, and their squares on the map, do not change. After a change, each tablet downloads the new map once, at its next sync: do that on Wi-Fi.</p></div>";}
+
+/* choosing the rectangle: an online map (OpenStreetMap tiles, drawn with the Leaflet library kept in lib/).
+   Leaflet is reached as window.L, because L alone is this app's own live-mode object (live.js). */
+let LMAP=null;
+function leafletLoad(cb){if(window.L)return cb();const c=document.createElement("link");c.rel="stylesheet";c.href="lib/leaflet.css";document.head.appendChild(c);
+  const s=document.createElement("script");s.src="lib/leaflet.js";s.onload=cb;s.onerror=()=>{UI.F.msg=["The map could not be opened. Check the internet connection and try again.","bad"];render();};document.head.appendChild(s);}
+function vMapSel(){const F=UI.F;let o='<button class="link" data-act="mapcancel">‹ Cancel</button><h1>Choose a new map area</h1>';
+  if(F.step==="pick"){const a=F.box?bboxKm2(F.box):0,big=a>MAPMAX;
+    o+='<div class="card"><p>1. Move and zoom the map until the whole project area is on the screen.<br>2. Tap <b>Draw the rectangle</b>, then drag from one corner of the project area to the opposite corner.<br>3. Tap <b>Fetch the map</b>.</p><div id="lmap" class="lmap"></div><p class="small muted">Map data '+MAPOSM+'. This step needs an internet connection.</p>'+
+      '<div class="row"><button data-act="mapdraw" class="'+(F.draw?"pri":"")+'">'+(F.draw?"Now drag on the map…":"Draw the rectangle")+'</button><button data-act="mapscreen">Use the area now on the screen</button></div>'+
+      '<div id="mapsize">'+mapSizeHtml(F)+"</div>"+(F.msg?'<div class="note '+F.msg[1]+'">'+esc(F.msg[0])+"</div>":"")+
+      '<div class="row"><button class="pri tap" data-act="mapfetch"'+(F.box&&!big&&!F.busy?"":" disabled")+">"+(F.busy?"Fetching the map… this can take a minute":"Fetch the map")+"</button></div></div>";
+    setTimeout(mapSelMount,0);}
+  else if(F.step==="preview"){const M=F.M,a=bboxKm2(M.bbox),few=M.nb<MAPFEW*a||M.nb<50;
+    o+='<div class="card"><h3>Preview</h3><div class="grid"><div class="card"><h3>Buildings found</h3><div class="big">'+M.nb.toLocaleString()+'</div></div><div class="card"><h3>Roads and paths found</h3><div class="big">'+M.nr.toLocaleString()+'</div></div><div class="card"><h3>Area</h3><div class="big">'+a.toFixed(1)+' km²</div></div><div class="card"><h3>Size for each tablet</h3><div class="big">'+(JSON.stringify(mapBare(M)).length/1048576).toFixed(1)+" MB</div></div></div>"+
+      (few?'<div class="note warn"><b>Very few buildings were found.</b> OpenStreetMap may not have this area mapped well. Household squares will still appear in the right places, but with little background behind them. You can use this map, choose a different rectangle, or cancel.</div>':"")+
+      (!M.nr?'<div class="note warn">No roads were found in this area.</div>':"")+mapBox("pmap","50vh")+
+      (F.msg?'<div class="note '+F.msg[1]+'">'+esc(F.msg[0])+"</div>":"")+
+      '<div class="row"><button class="pri tap" data-act="mapuse"'+(F.busy?" disabled":"")+">"+(F.busy?"Saving the map…":"Use this map")+'</button></div><div class="row"><button data-act="mapcancel">Cancel</button></div></div>';
+    setTimeout(()=>mapMount("pmap",M,mapItems(),null,true),0);}
+  return o;}
+const mapSizeHtml=F=>{if(!F.box)return '<p class="small muted">No rectangle yet.</p>';const a=bboxKm2(F.box);
+  return a>MAPMAX?'<div class="note bad"><b>This rectangle is too large: about '+a.toFixed(1)+" square kilometres.</b> The largest area that the map service and the tablets can handle is about "+MAPMAX+" square kilometres. Draw a smaller rectangle around the project area only.</div>":'<p><span class="chip good">Rectangle: about '+a.toFixed(1)+" square kilometres</span></p>";};
+const mapBare=M=>({f:1,bbox:M.bbox,b:M.b,r:M.r,nb:M.nb,nr:M.nr,meta:M.meta,name:M.name});
+function mapSelMount(){const el=document.getElementById("lmap"),F=UI.F;if(!el||!F||F.step!=="pick")return;
+  leafletLoad(()=>{if(!document.getElementById("lmap")||el._done)return;el._done=true;const b=(MAPS.cur||{}).bbox||[5.57,-0.215,5.605,-0.18];
+    const m=LMAP=window.L.map(el,{zoomSnap:.5});window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:MAPOSM}).addTo(m);
+    if(F.view)m.setView(F.view[0],F.view[1]);else m.fitBounds([[b[0],b[1]],[b[2],b[3]]]);
+    const show=()=>{if(F.rect){m.removeLayer(F.rect);F.rect=null;}if(F.box)F.rect=window.L.rectangle([[F.box[0],F.box[1]],[F.box[2],F.box[3]]],{color:"#b3261e",weight:3,fillOpacity:.08}).addTo(m);const s=document.getElementById("mapsize");if(s)s.innerHTML=mapSizeHtml(F);
+      const fb=document.querySelector('button[data-act="mapfetch"]');if(fb)fb.disabled=!(F.box&&bboxKm2(F.box)<=MAPMAX&&!F.busy);};
+    F.rect=null;show();m.on("moveend",()=>{F.view=[m.getCenter(),m.getZoom()];});
+    let a=null;const ll=e=>m.containerPointToLatLng(window.L.point(e.clientX-el.getBoundingClientRect().left,e.clientY-el.getBoundingClientRect().top));
+    const setBox=(p,q)=>{F.box=[Math.min(p.lat,q.lat),Math.min(p.lng,q.lng),Math.max(p.lat,q.lat),Math.max(p.lng,q.lng)].map(x=>+x.toFixed(5));};
+    el.addEventListener("pointerdown",e=>{if(!F.draw)return;e.preventDefault();e.stopPropagation();el.setPointerCapture(e.pointerId);a=ll(e);},true);
+    el.addEventListener("pointermove",e=>{if(!F.draw||!a)return;e.preventDefault();e.stopPropagation();setBox(a,ll(e));show();},true);
+    el.addEventListener("pointerup",e=>{if(!F.draw||!a)return;e.stopPropagation();const q=ll(e);if(Math.abs(q.lat-a.lat)>1e-5&&Math.abs(q.lng-a.lng)>1e-5)setBox(a,q);a=null;F.draw=false;F.msg=null;m.dragging.enable();UI.keep=true;render();},true);
+    if(F.draw)m.dragging.disable();});}
+async function mapFetch(){const F=UI.F;if(!F.box||bboxKm2(F.box)>MAPMAX||F.busy)return;F.busy=true;F.msg=null;UI.keep=true;render();let raw=null,err="";
+  for(const url of OVERPASS){try{const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),120000);const r=await fetch(url,{method:"POST",body:"data="+encodeURIComponent(mapQuery(F.box)),headers:{"Content-Type":"application/x-www-form-urlencoded"},signal:ctl.signal});clearTimeout(t);
+      if(!r.ok){err="busy";continue;}const j=await r.json();if(j&&Array.isArray(j.elements)){raw=j;break;}err="busy";}catch(e){err=navigator.onLine===false?"offline":"busy";}}
+  if(!UI.F||UI.F!==F)return;F.busy=false;
+  if(!raw){F.msg=[err==="offline"?"There is no internet connection. Connect and try again.":"The OpenStreetMap service did not answer. It is often busy. Wait a few minutes and tap Fetch the map again. If it still fails, use Upload a map file (GeoJSON): the Instructions (PDF) explain how.","bad"];UI.keep=true;return render();}
+  mapPreview(raw,F.box,"overpass");}
+function mapPreview(raw,box,src){const F=UI.F;let M;try{M=mapTrim(raw,box);}catch(e){F.msg=[e.message==="empty"?"The file holds no buildings or roads.":"This is not a map file the app can read. Use a GeoJSON file exported from overpass-turbo.eu, as the Instructions (PDF) explain.","bad"];F.step=F.step||"pick";UI.keep=true;return render();}
+  const a=bboxKm2(M.bbox);if(a>MAPMAX){F.msg=["This map covers about "+a.toFixed(1)+" square kilometres. The largest area that the tablets can handle is about "+MAPMAX+". Make a file for a smaller rectangle.","bad"];F.step="pick";UI.keep=true;return render();}
+  if(!M.nb&&!M.nr){F.msg=["No buildings or roads were found in this area. Check that the rectangle is over the project area.","bad"];F.step="pick";UI.keep=true;return render();}
+  M.meta={by:me().name,byId:UI.who,at:new Date().toISOString(),src,km2:+a.toFixed(2)};M.name="Project map";F.M=M;F.step="preview";F.msg=null;LMAP=null;render();}
+async function mapUse(){const F=UI.F,M=F.M;if(me().role!=="admin"||F.busy)return;const v="m"+Date.now();M.v=v;
+  if(live()){F.busy=true;UI.keep=true;render();try{const txt=JSON.stringify(mapBare(M)),n=Math.ceil(txt.length/MAPPIECE);
+      for(let i=0;i<n;i++){const r=await rpc("cmd_map_put",{p_token:L.auth.token,p_v:v,p_part:i,p_total:n,p_body:txt.slice(i*MAPPIECE,(i+1)*MAPPIECE),p_meta:Object.assign({nb:M.nb,nr:M.nr,bbox:M.bbox},M.meta)});if(!r||!r.ok)throw {code:(r&&r.error)||"server"};}}
+    catch(e){F.busy=false;F.msg=[e.code==="offline"?"No connection. The map was not saved. Connect and tap Use this map again.":e.code==="server_404"?"The server is not ready for maps yet. Run server/update-0.27.sql in Supabase, then tap Use this map again.":"The map could not be saved on the server ("+(e.code||"error")+"). Try again.","bad"];UI.keep=true;return render();}}
+  MAPS.cur=M;MAPS.v=v;IDB.set("map",mapBare(Object.assign({},M,{v})));delete MV.cmap;UI.F=null;UI.mode=null;UI.tab="cmap";UI.note=["The new map is in use."+(live()?" Each tablet will download it at its next sync. Ask the workers to sync on Wi-Fi.":" In example mode it is kept on this device only."),""];render();}
+async function mapDefault(){if(me().role!=="admin"||!confirm("Go back to the built-in map of Nima and Mamobi? The households already recorded do not change."))return;
+  if(live()){try{const r=await rpc("cmd_map_reset",{p_token:L.auth.token});if(!r||!r.ok)throw {code:"server"};}catch(e){UI.note=["The default map could not be restored on the server. Check the connection and try again.","bad"];return render();}}
+  MAPS.v="default";IDB.set("map",null);MAPS.cur=null;delete MV.cmap;mapLoad(()=>{MAPS.cur=MAPS.def;UI.note=["The built-in map is in use again.",""];render();});}
+/* each tablet: fetch the project's map when the server has a different one from the copy kept here */
+async function mapSync(){if(!live()||!L.auth||!L.auth.token)return;let info;try{info=await rpc("cmd_map_info",{p_token:L.auth.token});}catch(e){return;}
+  if(!info||!info.v||info.v===MAPS.v)return;
+  if(info.v==="default"){MAPS.v="default";IDB.set("map",null);if(MAPS.cur&&MAPS.cur!==MAPS.def){MAPS.cur=MAPS.def||null;delete MV.cmap;}return;}
+  try{let txt="";for(let i=0;i<info.parts;i++){const p=await rpc("cmd_map_get",{p_token:L.auth.token,p_v:info.v,p_part:i});if(typeof p!=="string")return;txt+=p;}
+    const M=JSON.parse(txt);M.v=info.v;MAPS.cur=M;MAPS.v=info.v;IDB.set("map",mapBare(M));delete MV.cmap;if(UI.tab==="cmap"&&!UI.mode&&!UI.F)render();}catch(e){}}
+async function mapBoot(){try{const M=IDB.db?await IDB.get("map"):null;if(M&&M.b){MAPS.cur=M;MAPS.v=M.v||"local";}}catch(e){}}
+document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const A=b.dataset.act;if(!A||!A.startsWith("map")||A==="mapz")return;if(me().role!=="admin")return;const F=UI.F;
+  if(A==="maparea"){UI.F={step:"pick",box:null,draw:false,msg:null,busy:false};UI.mode="mapsel";return render();}
+  if(A==="mapcancel"){LMAP=null;UI.F=null;UI.mode=null;return render();}
+  if(A==="mapdraw"&&F){F.draw=!F.draw;if(LMAP){if(F.draw)LMAP.dragging.disable();else LMAP.dragging.enable();}b.className=F.draw?"pri":"";b.textContent=F.draw?"Now drag on the map…":"Draw the rectangle";return;}
+  if(A==="mapscreen"&&F&&LMAP){const q=LMAP.getBounds().pad(-.06);F.box=[q.getSouth(),q.getWest(),q.getNorth(),q.getEast()].map(x=>+x.toFixed(5));F.msg=null;UI.keep=true;return render();}
+  if(A==="mapfetch")return mapFetch();
+  if(A==="mapuse")return mapUse();
+  if(A==="mapdefault")return mapDefault();
+  if(A==="mapfile"){const i=$("#mapfile");if(i){i.value="";i.click();}return;}});
+document.addEventListener("change",e=>{const el=e.target;if(el.id!=="mapfile"||!el.files||!el.files[0]||me().role!=="admin")return;const f=el.files[0];
+  if(f.size>80*1048576){UI.note=["This file is too large ("+Math.round(f.size/1048576)+" MB). Make a file for a smaller area.","bad"];return render();}
+  const rd=new FileReader();rd.onload=()=>{let raw;UI.F={step:"pick",box:null,draw:false,msg:null,busy:false,file:true};UI.mode="mapsel";try{raw=JSON.parse(rd.result);}catch(x){UI.F.msg=["This file could not be read. It must be a GeoJSON file, as exported from overpass-turbo.eu.","bad"];return render();}mapPreview(raw,null,"file");};
+  rd.onerror=()=>{UI.note=["The file could not be read.","bad"];render();};rd.readAsText(f);});
 /* ---------- census (Enumerators) ----------
    The census is done once, before Care Groups are formed, by temporary Enumerators working in pairs.
    A census household belongs to the Enumerator account that entered it (h.ln) until the administrator
@@ -1298,7 +1513,9 @@ function vCProg(){const en=S.w.filter(w=>w.role==="enum"&&w.active!==false),all=
 
 /* example data: three pairs, with a few households for the first, so that the screens can be tried */
 function czSeed(){S.w.push({id:"e1",role:"enum",name:"Census pair A (example)"},{id:"e2",role:"enum",name:"Census pair B (example)"},{id:"e3",role:"enum",name:"Census pair C (example)"});
-  const y=addD(TODAY,-1),mk=(ln,k,d,st,head,lm,acc,people,extra)=>{const h={id:"hc"+ln+k,ln,no:"C-"+ln.toUpperCase()+"-"+String(k).padStart(3,"0"),head,nhis:k%2===0,topics:[],reg:d,cen:Object.assign({st,d,by:ln,gps:acc?{lat:+(5.5835+k*.00021+(ln==="e2"?.002:0)).toFixed(6),lon:+(-.1992+k*.00017).toFixed(6),acc,t:0}:null,lm,ph:"",kids:k%4,tries:1},extra||{})};
+  // positions of real buildings in Nima (from the built-in map), so that the example squares sit on the map
+  const XY={e1:[[5.58221,-0.19893],[5.5822,-0.1989],[5.58234,-0.19906],[5.58217,-0.19882],[5.58199,-0.19896],[5.58215,-0.19878],[5.58204,-0.19882],[5.58215,-0.19876],[5.5823,-0.19878],[5.58231,-0.19925],[5.58223,-0.19872],[5.58197,-0.19882],[5.5824,-0.19922],[5.58213,-0.19869],[5.58189,-0.19883],[5.58242,-0.19932],[5.5819,-0.19925],[5.5825,-0.19925],[5.58182,-0.19914],[5.5821,-0.1986],[5.58193,-0.19868],[5.58179,-0.1989],[5.58212,-0.19942],[5.58263,-0.19908],[5.58176,-0.199],[5.58226,-0.19856],[5.58209,-0.19944],[5.58208,-0.19855],[5.58187,-0.19866],[5.58172,-0.19895],[5.58176,-0.1992],[5.58255,-0.19866],[5.58221,-0.19851],[5.58255,-0.19935]],e2:[[5.58609,-0.19657],[5.58612,-0.19652],[5.58604,-0.19637],[5.58597,-0.19667],[5.5861,-0.19665],[5.58616,-0.19658],[5.58614,-0.19634],[5.5861,-0.19668],[5.58582,-0.19663],[5.58611,-0.19672],[5.58598,-0.19675],[5.58605,-0.19676],[5.58624,-0.19663],[5.58578,-0.19668],[5.58607,-0.19622],[5.58629,-0.19649]]};
+  const y=addD(TODAY,-1),mk=(ln,k,d,st,head,lm,acc,people,extra)=>{const h={id:"hc"+ln+k,ln,no:"C-"+ln.toUpperCase()+"-"+String(k).padStart(3,"0"),head,nhis:k%2===0,topics:[],reg:d,cen:Object.assign({st,d,by:ln,gps:acc&&XY[ln][k-1]?{lat:XY[ln][k-1][0],lon:XY[ln][k-1][1],acc,t:0}:null,lm,ph:"",kids:k%4,tries:1},extra||{})};
       if(st==="done")h.census=d;S.hh.push(h);
       (people||[]).forEach((a,j)=>{const p={id:h.id+"p"+j,hh:h.id,name:a[0],sex:a[1],age:a[2],bp:[],glu:[],htn:{},dm:{},meds:[],cen:{st:a[3]==null?(a[2]>=35?"absent":"listed"):"seen",d}};
         if(a[3]!=null){p.bp.push({d,s:a[3],di:a[4],by:ln,src:"census",raw:[[a[3]+2,a[4]-1],[a[3]-2,a[4]+1]]});p.waist=a[5];p.ht=a[6];p.fam=false;p.riskD=d;p.cvd={st:false,mi:false,d:null,by:ln};}
@@ -1313,6 +1530,15 @@ function czSeed(){S.w.push({id:"e1",role:"enum",name:"Census pair A (example)"},
   mk("e1",7,TODAY,"ref","Refused: white storey building, ground floor","white storey building, ground floor",null);
   mk("e2",1,y,"done","Esi Nartey","Wooden house beside the borehole",10,[["Esi Nartey","F",39,118,76,82,162]]);
   mk("e2",2,TODAY,"done","Kojo Agbeko","Container shop, room behind",15,[["Kojo Agbeko","M",49,144,96,99,174],["Mawusi Agbeko","F",46,122,78,91,161]]);
+  // more example households, so that the map has enough on it to judge
+  const FN=["Ama","Kofi","Abena","Yaw","Esi","Kwame","Adwoa","Musah","Fati","Kojo","Akua","Ibrahim","Efua","Nii"],SN=["Mensah","Owusu","Boateng","Tetteh","Alhassan","Quaye","Addo","Yakubu","Lamptey","Darko","Agbeko"];
+  for(const [ln,from] of [["e1",8],["e2",3]])for(let k=from;k<=XY[ln].length;k++){const d=addD(TODAY,-(k%4)),nm=i=>FN[(k*3+i*5)%FN.length]+" "+SN[(k*7)%SN.length],acc=5+(k*7)%19;
+    if(k%11===5){mk(ln,k,d,"vac","Vacant: empty room, row "+k,"empty room, row "+k,acc);continue;}
+    if(k%9===4){mk(ln,k,d,"cb","Nobody home: house "+k+" on the lane","house "+k+" on the lane",acc,[],{why:k%2?"cb":"kids",cbTime:"evening"});continue;}
+    if(k%17===8){mk(ln,k,d,"ref","Refused: house "+k+" on the lane","house "+k+" on the lane",acc);continue;}
+    const h=k%5===0,dm=k%7===0,hi=h||k%6===1,age=38+(k*11)%34;
+    mk(ln,k,d,"done",nm(0),"House "+k+" on the lane",acc,[[nm(0),k%2?"M":"F",age,hi?146+(k%12):118+(k%14),hi?92+(k%6):74+(k%8),84+(k*5)%22,155+(k*3)%22,h?"h":dm?"d":0],[nm(1),k%2?"F":"M",24+(k*5)%40,k%3?120+(k%10):null,78,82,160]]);
+    if(h&&dm){const p=S.p[S.p.length-1];p.dm={dx:true,src:"self",base:true};}}
   S.ref.push({id:"rc1",p:"hce16p0",d:TODAY,by:"e1",code:"prompt",urg:2});}
 
 /* actions */
@@ -1415,7 +1641,7 @@ async function sync(){if(!live()||L.busy||!L.auth||!L.auth.token)return;if(!navi
       if(batch.length)await rpc("cmd_push",{p_token:L.auth.token,p_records:batch});
       for(const k of keys.slice(i,i+200))delete L.dirty[k];}
     await refreshWorkers();
-    const cfg=await rpc("cmd_settings_get",{p_token:L.auth.token});applyCfg(cfg);lastCfg=JSON.stringify(cfgPart());
+    const cfg=await rpc("cmd_settings_get",{p_token:L.auth.token});applyCfg(cfg);lastCfg=JSON.stringify(cfgPart());mapSync();
     let got=0,guard=0;
     while(guard++<200){const r=await rpc("cmd_pull",{p_token:L.auth.token,p_since:L.seq});got+=applyPulled(r.records||[]);L.seq=r.seq||L.seq;if(!r.count||r.count<1000)break;}
     index();scan();L.dirty={...L.dirty};L.last=Date.now();
@@ -1500,7 +1726,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
 document.addEventListener("change",e=>{const el=e.target;if(el.dataset.cfgstart&&el.value&&me().role==="admin"){setStart(el.value);render();}});
 
 /* start-up: a signed-in worker goes straight to her work; otherwise the welcome screen */
-async function boot(){await IDB.open();const st=IDB.db?await IDB.get("state"):null;
+async function boot(){await IDB.open();await mapBoot();const st=IDB.db?await IDB.get("state"):null;
   if(st&&st.mode==="live"&&st.auth){L.mode="live";LIVE=true;L.auth=st.auth;L.seq=st.seq||0;L.meta=st.meta||{};L.dirty=st.dirty||{};L.last=st.last||null;applyCfg(st.cfg);
     S.w.push(...(st.w||[]));for(const ty of TYPES)S[ty].push(...((st.recs||{})[ty]||[]));index();for(const ty of TYPES)for(const r of S[ty])SNAP.set(rk(ty,r.id),JSON.stringify(r));
     lastCfg=JSON.stringify(cfgPart());if(L.auth.worker)UI.who=L.auth.worker.id;}

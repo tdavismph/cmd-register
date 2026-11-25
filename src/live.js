@@ -70,7 +70,7 @@ async function sync(){if(!live()||L.busy||!L.auth||!L.auth.token)return;if(!navi
       if(batch.length)await rpc("cmd_push",{p_token:L.auth.token,p_records:batch});
       for(const k of keys.slice(i,i+200))delete L.dirty[k];}
     await refreshWorkers();
-    const cfg=await rpc("cmd_settings_get",{p_token:L.auth.token});applyCfg(cfg);lastCfg=JSON.stringify(cfgPart());
+    const cfg=await rpc("cmd_settings_get",{p_token:L.auth.token});applyCfg(cfg);lastCfg=JSON.stringify(cfgPart());mapSync();
     let got=0,guard=0;
     while(guard++<200){const r=await rpc("cmd_pull",{p_token:L.auth.token,p_since:L.seq});got+=applyPulled(r.records||[]);L.seq=r.seq||L.seq;if(!r.count||r.count<1000)break;}
     index();scan();L.dirty={...L.dirty};L.last=Date.now();
@@ -155,7 +155,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
 document.addEventListener("change",e=>{const el=e.target;if(el.dataset.cfgstart&&el.value&&me().role==="admin"){setStart(el.value);render();}});
 
 /* start-up: a signed-in worker goes straight to her work; otherwise the welcome screen */
-async function boot(){await IDB.open();const st=IDB.db?await IDB.get("state"):null;
+async function boot(){await IDB.open();await mapBoot();const st=IDB.db?await IDB.get("state"):null;
   if(st&&st.mode==="live"&&st.auth){L.mode="live";LIVE=true;L.auth=st.auth;L.seq=st.seq||0;L.meta=st.meta||{};L.dirty=st.dirty||{};L.last=st.last||null;applyCfg(st.cfg);
     S.w.push(...(st.w||[]));for(const ty of TYPES)S[ty].push(...((st.recs||{})[ty]||[]));index();for(const ty of TYPES)for(const r of S[ty])SNAP.set(rk(ty,r.id),JSON.stringify(r));
     lastCfg=JSON.stringify(cfgPart());if(L.auth.worker)UI.who=L.auth.worker.id;}

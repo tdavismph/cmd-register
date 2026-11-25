@@ -180,7 +180,9 @@ function vCProg(){const en=S.w.filter(w=>w.role==="enum"&&w.active!==false),all=
 
 /* example data: three pairs, with a few households for the first, so that the screens can be tried */
 function czSeed(){S.w.push({id:"e1",role:"enum",name:"Census pair A (example)"},{id:"e2",role:"enum",name:"Census pair B (example)"},{id:"e3",role:"enum",name:"Census pair C (example)"});
-  const y=addD(TODAY,-1),mk=(ln,k,d,st,head,lm,acc,people,extra)=>{const h={id:"hc"+ln+k,ln,no:"C-"+ln.toUpperCase()+"-"+String(k).padStart(3,"0"),head,nhis:k%2===0,topics:[],reg:d,cen:Object.assign({st,d,by:ln,gps:acc?{lat:+(5.5835+k*.00021+(ln==="e2"?.002:0)).toFixed(6),lon:+(-.1992+k*.00017).toFixed(6),acc,t:0}:null,lm,ph:"",kids:k%4,tries:1},extra||{})};
+  // positions of real buildings in Nima (from the built-in map), so that the example squares sit on the map
+  const XY={e1:[[5.58221,-0.19893],[5.5822,-0.1989],[5.58234,-0.19906],[5.58217,-0.19882],[5.58199,-0.19896],[5.58215,-0.19878],[5.58204,-0.19882],[5.58215,-0.19876],[5.5823,-0.19878],[5.58231,-0.19925],[5.58223,-0.19872],[5.58197,-0.19882],[5.5824,-0.19922],[5.58213,-0.19869],[5.58189,-0.19883],[5.58242,-0.19932],[5.5819,-0.19925],[5.5825,-0.19925],[5.58182,-0.19914],[5.5821,-0.1986],[5.58193,-0.19868],[5.58179,-0.1989],[5.58212,-0.19942],[5.58263,-0.19908],[5.58176,-0.199],[5.58226,-0.19856],[5.58209,-0.19944],[5.58208,-0.19855],[5.58187,-0.19866],[5.58172,-0.19895],[5.58176,-0.1992],[5.58255,-0.19866],[5.58221,-0.19851],[5.58255,-0.19935]],e2:[[5.58609,-0.19657],[5.58612,-0.19652],[5.58604,-0.19637],[5.58597,-0.19667],[5.5861,-0.19665],[5.58616,-0.19658],[5.58614,-0.19634],[5.5861,-0.19668],[5.58582,-0.19663],[5.58611,-0.19672],[5.58598,-0.19675],[5.58605,-0.19676],[5.58624,-0.19663],[5.58578,-0.19668],[5.58607,-0.19622],[5.58629,-0.19649]]};
+  const y=addD(TODAY,-1),mk=(ln,k,d,st,head,lm,acc,people,extra)=>{const h={id:"hc"+ln+k,ln,no:"C-"+ln.toUpperCase()+"-"+String(k).padStart(3,"0"),head,nhis:k%2===0,topics:[],reg:d,cen:Object.assign({st,d,by:ln,gps:acc&&XY[ln][k-1]?{lat:XY[ln][k-1][0],lon:XY[ln][k-1][1],acc,t:0}:null,lm,ph:"",kids:k%4,tries:1},extra||{})};
       if(st==="done")h.census=d;S.hh.push(h);
       (people||[]).forEach((a,j)=>{const p={id:h.id+"p"+j,hh:h.id,name:a[0],sex:a[1],age:a[2],bp:[],glu:[],htn:{},dm:{},meds:[],cen:{st:a[3]==null?(a[2]>=35?"absent":"listed"):"seen",d}};
         if(a[3]!=null){p.bp.push({d,s:a[3],di:a[4],by:ln,src:"census",raw:[[a[3]+2,a[4]-1],[a[3]-2,a[4]+1]]});p.waist=a[5];p.ht=a[6];p.fam=false;p.riskD=d;p.cvd={st:false,mi:false,d:null,by:ln};}
@@ -195,6 +197,15 @@ function czSeed(){S.w.push({id:"e1",role:"enum",name:"Census pair A (example)"},
   mk("e1",7,TODAY,"ref","Refused: white storey building, ground floor","white storey building, ground floor",null);
   mk("e2",1,y,"done","Esi Nartey","Wooden house beside the borehole",10,[["Esi Nartey","F",39,118,76,82,162]]);
   mk("e2",2,TODAY,"done","Kojo Agbeko","Container shop, room behind",15,[["Kojo Agbeko","M",49,144,96,99,174],["Mawusi Agbeko","F",46,122,78,91,161]]);
+  // more example households, so that the map has enough on it to judge
+  const FN=["Ama","Kofi","Abena","Yaw","Esi","Kwame","Adwoa","Musah","Fati","Kojo","Akua","Ibrahim","Efua","Nii"],SN=["Mensah","Owusu","Boateng","Tetteh","Alhassan","Quaye","Addo","Yakubu","Lamptey","Darko","Agbeko"];
+  for(const [ln,from] of [["e1",8],["e2",3]])for(let k=from;k<=XY[ln].length;k++){const d=addD(TODAY,-(k%4)),nm=i=>FN[(k*3+i*5)%FN.length]+" "+SN[(k*7)%SN.length],acc=5+(k*7)%19;
+    if(k%11===5){mk(ln,k,d,"vac","Vacant: empty room, row "+k,"empty room, row "+k,acc);continue;}
+    if(k%9===4){mk(ln,k,d,"cb","Nobody home: house "+k+" on the lane","house "+k+" on the lane",acc,[],{why:k%2?"cb":"kids",cbTime:"evening"});continue;}
+    if(k%17===8){mk(ln,k,d,"ref","Refused: house "+k+" on the lane","house "+k+" on the lane",acc);continue;}
+    const h=k%5===0,dm=k%7===0,hi=h||k%6===1,age=38+(k*11)%34;
+    mk(ln,k,d,"done",nm(0),"House "+k+" on the lane",acc,[[nm(0),k%2?"M":"F",age,hi?146+(k%12):118+(k%14),hi?92+(k%6):74+(k%8),84+(k*5)%22,155+(k*3)%22,h?"h":dm?"d":0],[nm(1),k%2?"F":"M",24+(k*5)%40,k%3?120+(k%10):null,78,82,160]]);
+    if(h&&dm){const p=S.p[S.p.length-1];p.dm={dx:true,src:"self",base:true};}}
   S.ref.push({id:"rc1",p:"hce16p0",d:TODAY,by:"e1",code:"prompt",urg:2});}
 
 /* actions */

@@ -2,7 +2,7 @@
 
 A home visit register with built-in counselling pages for hypertension and diabetes (cardiometabolic disease, CMD). It is written for the Salvation Army and Impact Global Health Alliance (IGHA) demonstration of the census-based, impact-oriented approach with Care Groups (CBIO+) in urban Ghana.
 
-Build 0.25.1. The app opens on a welcome screen with two choices:
+Build 0.27. The app opens on a welcome screen with two choices:
 
 - **Try it with example data.** Every person and result is fictitious. Nothing is sent to a server, and records entered are lost when the page is closed.
 - **Sign in.** Workers sign in with a sign-in name and PIN. Records are kept on the tablet (so they survive closing the app and work offline) and are sent to the project's Supabase database whenever there is a connection. Use test data only until the hosting location and data protection requirements are settled and the security has been independently reviewed.
@@ -55,7 +55,10 @@ The census is done once, before Care Groups are formed, by temporary Enumerators
 - **Administrator:** the Census tab shows progress by pair (completed, call-backs, refusals, location quality, share of readings ending in 0) and the counts needed to plan Care Groups. Census referrals appear on the clinic's and the administrator's Referrals lists.
 - **Re-checks (from build 0.25):** a person with a raised reading at the census appears on the Promoters' "BP re-checks" list, with the house description and phone number, so that a Promoter can take the second reading in the weeks after the census. A second raised reading creates the referral. The server sends Promoters the census households, people, visits and referrals for this (run `server/update-0.25.sql`).
 - **Units (from build 0.25):** the administrator chooses in Settings whether height, waist and weight are typed in centimetres and kilograms (the default) or in feet, inches and pounds (`CFG.units`, synced). Records are always stored in cm and kg.
-- Census households are not in the reports until they are given to Leader Neighbors. The map and the forming of Care Groups come in later builds.
+- **Census map (from build 0.26):** the Administrator and the Promoters have a "Census map" tab, and each Enumerator pair a "Map" tab for its own households. Households are small squares on a background of buildings and roads: green (censused, no patient), blue (hypertension), red (diabetes), purple (both), grey (vacant), and an empty box for a house visited but not completed. Enumerators see only completed or not. Nothing about TB or HIV is shown. The code is in `src/map.js`; the built-in background for Nima and Mamobi is `map/default.js` (about 0.7 MB, loaded only when a map is opened).
+- **Census map area (from build 0.27):** in the "Census map area" section the Administrator can replace the background: draw a rectangle on an online map (at most about 25 square kilometres), fetch buildings and roads from OpenStreetMap through the Overpass API (`overpass-api.de`, then `overpass.private.coffee`), check the preview, and use it. A GeoJSON file from overpass-turbo.eu can be uploaded instead. "Restore default map" brings back the built-in one. The trimmed map is stored in Supabase in pieces and each tablet downloads it once at its next sync (`server/update-0.27.sql`). Household locations are never changed. The illustrated guide is `docs/map-area-guide.pdf` (source: `docs/map-area-guide.html`). The code is in `src/maparea.js`; the chooser uses the Leaflet library kept in `lib/`.
+- Map data is © OpenStreetMap contributors, under the Open Database Licence; the credit is shown on every map view.
+- Census households are not in the reports until they are given to Leader Neighbors. The forming of Care Groups comes in a later build.
 - **Server:** run `server/update-0.23.sql` once. It adds the Enumerator role and limits each pair to the households, people and referrals it entered.
 
 ### Optional modules: TB and HIV (from build 0.24)

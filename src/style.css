@@ -102,4 +102,12 @@ body.census .brand::before{content:"CENSUS";display:inline-block;background:#ffd
 .say::before,.do::before{display:block;font-size:12px;font-weight:800;letter-spacing:.08em;margin-bottom:2px}
 .say::before{content:"SAY";color:#7a5600} .do::before{content:"DO";color:#174f7d}
 
+/* census map */
+.mapwrap{position:relative} .mapcv{width:100%;display:block;border:1px solid var(--line);border-radius:var(--r);touch-action:none;background:#f4f1ea;cursor:grab}
+.mapbtn{position:absolute;top:8px;left:8px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 16px)} .mapbtn button{min-height:40px;padding:4px 12px;box-shadow:0 1px 3px rgba(0,0,0,.25);background:#fff;color:#14302b}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-right:8px} .lg i{width:14px;height:14px;border:1.6px solid #1d2a27;display:inline-block;flex:none}
+.lmap{height:58vh;min-height:320px;border-radius:var(--r);border:1px solid var(--line);z-index:0}
+a.btn{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);font-weight:700;color:inherit;text-decoration:none}
+button:disabled{opacity:.5;cursor:not-allowed}
+
 .pgpic{display:block;width:100%;max-width:560px;aspect-ratio:800/597;object-fit:cover;border-radius:10px;margin:0 auto 12px;background:#f1ece2}

@@ -26,6 +26,6 @@ cat <<'H'
 <main class="wrap" id="app"></main>
 <script>
 H
-cat src/data.js src/qivc.js src/ui.js src/modules.js src/census.js src/live.js
+cat src/data.js src/qivc.js src/ui.js src/modules.js src/map.js src/maparea.js src/census.js src/live.js
 printf '</script>\n</body>\n</html>\n'
 } > index.html
