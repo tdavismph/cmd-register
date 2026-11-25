@@ -70,7 +70,7 @@ function vCz(){const F=UI.F,a=F.ad[F.i],miss=k=>F.tried&&k,q8=czQueue(F),pos=q8.
       (CZCB[F.out]?q(F.out==="cb"?"Best time to come back, if a neighbour knows":"Best time to come back",ctxt("cbTime",F.cbTime,"For example: Saturday morning")):"")+
       (F.tried&&czMissing(F)?'<div class="note bad">Please complete the items marked with *.</div>':"")+'<div class="row"><button class="pri tap" data-act="cznext">'+(F.out==="home"?"Next":"Save")+"</button></div></div>";}
   else if(F.step==="consent"){
-    o+='<h1>2. Ask permission</h1><div class="card">'+say("Good day. We are working with a community health project. We are visiting every house in this area to list the adults who live here and to check the blood pressure of everyone aged 35 or older. It is free. It takes about 15 minutes. What you tell us is kept private, and you may say no to any part. May we go ahead?")+
+    o+='<h1>2. Ask permission</h1><div class="card">'+say("Good day. We are working with a Salvation Army health project. We are visiting every house in this area to list the adults who live here and to check the blood pressure of everyone aged 35 or older. It is free. It takes about 15 minutes. What you tell us is kept private, and you may say no to any part. May we go ahead?")+
       '<div class="row"><button class="pri tap" data-act="czyes">They agree</button></div><div class="row"><button data-act="czno">They do not agree</button></div></div>';}
   else if(F.step==="list"){
     o+='<h1>3. Who lives here</h1><div class="card">'+todo("First ask every adult aged 35 or older who is home to sit down and rest. Their blood pressure will be ready to take when you finish this list.")+
