@@ -1,6 +1,6 @@
 // Service worker: keeps the app available with no connection.
 // Change VERSION whenever index.html changes, so tablets fetch the new files.
-const VERSION = "cmd-register-0.28.0";
+const VERSION = "cmd-register-0.29.0";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png",
   "map/default.js", "lib/leaflet.js", "lib/leaflet.css", "docs/map-area-guide.pdf",
   "img/m_forget.jpg", "img/m_well.jpg", "img/m_side.jpg", "img/m_out.jpg", "img/m_herbs.jpg", "img/m_other.jpg", "img/m_routine.jpg", "img/c_review.jpg", "img/c_between.jpg", "img/r_raised.jpg", "img/n_bp.jpg", "img/n_card.jpg", "img/d_signs.jpg", "img/d_test.jpg", "img/d_feet.jpg", "img/d_low.jpg", "img/k_salt.jpg", "img/k_drinks.jpg", "img/k_plate.jpg", "img/w_weight.jpg", "img/a_move.jpg", "img/t_tobacco.jpg", "img/s_stress.jpg", "img/e_plan.jpg", "img/f_helpers.jpg", "img/f_family.jpg"];

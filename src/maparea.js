@@ -5,10 +5,11 @@
 const OVERPASS=["https://overpass-api.de/api/interpreter","https://overpass.private.coffee/api/interpreter"];
 const MAPPIECE=350000;    // characters in one piece sent to the server
 const MAPFEW=20;          // fewer buildings than this per km2: warn that coverage may be poor
-const mapQuery=b=>"[out:json][timeout:90];(way[\"building\"]("+b.join(",")+");way[\"highway\"]("+b.join(",")+"););out geom;";
+const MAPPOI='["amenity"~"^(place_of_worship|school|kindergarten|college|university|clinic|hospital|doctors|bank|marketplace|toilets)$"]';   // landmarks, as points or as outlines
+const mapQuery=b=>"[out:json][timeout:90];(way[\"building\"]("+b.join(",")+");way[\"highway\"]("+b.join(",")+");node"+MAPPOI+"("+b.join(",")+");way"+MAPPOI+"("+b.join(",")+"););out geom;";
 const mapMetaTxt=M=>M&&M.meta?"Chosen by "+esc(M.meta.by||"")+" on "+esc(new Date(M.meta.at).toLocaleString())+" ("+(M.meta.src==="file"?"from an uploaded file":"fetched from OpenStreetMap")+")":"The built-in map of Nima and Mamobi, Accra";
 function mapAreaCard(){const M=MAPS.cur;
-  return '<div class="card"><h3>Census map area</h3>'+(M?"<p><b>"+(mapIsDefault()?"Built-in map: Nima and Mamobi, Accra":"Map chosen for this project")+"</b></p><p class='small'>"+mapMetaTxt(M)+". About "+bboxKm2(M.bbox).toFixed(1)+" square kilometres, "+M.nb.toLocaleString()+" buildings and "+M.nr.toLocaleString()+" roads and paths. Corners: "+M.bbox[0].toFixed(4)+", "+M.bbox[1].toFixed(4)+" to "+M.bbox[2].toFixed(4)+", "+M.bbox[3].toFixed(4)+".</p>":"")+
+  return '<div class="card"><h3>Census map area</h3>'+(M?"<p><b>"+(mapIsDefault()?"Built-in map: Nima and Mamobi, Accra":"Map chosen for this project")+"</b></p><p class='small'>"+mapMetaTxt(M)+". About "+bboxKm2(M.bbox).toFixed(1)+" square kilometres, "+M.nb.toLocaleString()+" buildings and "+M.nr.toLocaleString()+" roads and paths, "+M.r.filter(r=>r[1]).length.toLocaleString()+" of them with a name, and "+(M.p||[]).length.toLocaleString()+" landmarks. Corners: "+M.bbox[0].toFixed(4)+", "+M.bbox[1].toFixed(4)+" to "+M.bbox[2].toFixed(4)+", "+M.bbox[3].toFixed(4)+".</p>":"")+
     '<div class="row"><button class="pri" data-act="maparea">Choose a new map area</button><a class="btn" href="docs/map-area-guide.pdf" target="_blank" rel="noopener">Instructions (PDF)</a></div>'+
     '<div class="row"><button data-act="mapfile">Upload a map file (GeoJSON)</button>'+(mapIsDefault()?"":'<button data-act="mapdefault">Restore default map</button>')+'</div><input type="file" id="mapfile" accept=".geojson,.json,application/json,application/geo+json" hidden>'+
     "<p class='small muted'>Only the Administrator can change the map area. The households already recorded, and their squares on the map, do not change. After a change, each tablet downloads the new map once, at its next sync: do that on Wi-Fi.</p></div>";}
@@ -26,7 +27,7 @@ function vMapSel(){const F=UI.F;let o='<button class="link" data-act="mapcancel"
       '<div class="row"><button class="pri tap" data-act="mapfetch"'+(F.box&&!big&&!F.busy?"":" disabled")+">"+(F.busy?"Fetching the map… this can take a minute":"Fetch the map")+"</button></div></div>";
     setTimeout(mapSelMount,0);}
   else if(F.step==="preview"){const M=F.M,a=bboxKm2(M.bbox),few=M.nb<MAPFEW*a||M.nb<50;
-    o+='<div class="card"><h3>Preview</h3><div class="grid"><div class="card"><h3>Buildings found</h3><div class="big">'+M.nb.toLocaleString()+'</div></div><div class="card"><h3>Roads and paths found</h3><div class="big">'+M.nr.toLocaleString()+'</div></div><div class="card"><h3>Area</h3><div class="big">'+a.toFixed(1)+' km²</div></div><div class="card"><h3>Size for each tablet</h3><div class="big">'+(JSON.stringify(mapBare(M)).length/1048576).toFixed(1)+" MB</div></div></div>"+
+    o+='<div class="card"><h3>Preview</h3><div class="grid"><div class="card"><h3>Buildings found</h3><div class="big">'+M.nb.toLocaleString()+'</div></div><div class="card"><h3>Roads and paths found</h3><div class="big">'+M.nr.toLocaleString()+'</div><p class="small muted">'+M.r.filter(r=>r[1]).length.toLocaleString()+' with a name</p></div><div class="card"><h3>Landmarks found</h3><div class="big">'+(M.p||[]).length.toLocaleString()+'</div><p class="small muted">mosques, churches, schools, clinics, banks, markets, public toilets</p></div><div class="card"><h3>Area</h3><div class="big">'+a.toFixed(1)+' km²</div></div><div class="card"><h3>Size for each tablet</h3><div class="big">'+(JSON.stringify(mapBare(M)).length/1048576).toFixed(1)+" MB</div></div></div>"+
       (few?'<div class="note warn"><b>Very few buildings were found.</b> OpenStreetMap may not have this area mapped well. Household squares will still appear in the right places, but with little background behind them. You can use this map, choose a different rectangle, or cancel.</div>':"")+
       (!M.nr?'<div class="note warn">No roads were found in this area.</div>':"")+mapBox("pmap","50vh")+
       (F.msg?'<div class="note '+F.msg[1]+'">'+esc(F.msg[0])+"</div>":"")+
@@ -35,7 +36,7 @@ function vMapSel(){const F=UI.F;let o='<button class="link" data-act="mapcancel"
   return o;}
 const mapSizeHtml=F=>{if(!F.box)return '<p class="small muted">No rectangle yet.</p>';const a=bboxKm2(F.box);
   return a>MAPMAX?'<div class="note bad"><b>This rectangle is too large: about '+a.toFixed(1)+" square kilometres.</b> The largest area that the map service and the tablets can handle is about "+MAPMAX+" square kilometres. Draw a smaller rectangle around the project area only.</div>":'<p><span class="chip good">Rectangle: about '+a.toFixed(1)+" square kilometres</span></p>";};
-const mapBare=M=>({f:1,bbox:M.bbox,b:M.b,r:M.r,nb:M.nb,nr:M.nr,meta:M.meta,name:M.name});
+const mapBare=M=>({f:1,bbox:M.bbox,b:M.b,r:M.r,p:M.p||[],nb:M.nb,nr:M.nr,np:(M.p||[]).length,meta:M.meta,name:M.name});
 function mapSelMount(){const el=document.getElementById("lmap"),F=UI.F;if(!el||!F||F.step!=="pick")return;
   leafletLoad(()=>{if(!document.getElementById("lmap")||el._done)return;el._done=true;const b=(MAPS.cur||{}).bbox||[5.57,-0.215,5.605,-0.18];
     const m=LMAP=window.L.map(el,{zoomSnap:.5});window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:MAPOSM}).addTo(m);
