@@ -141,8 +141,12 @@ const ngCands=(g,mem)=>(mem.get(g.id)||{hs:[]}).hs.flatMap(h=>(IX.hhP[h.id]||[])
 function ngFlags(g){const f=[];if(!g.ln){f.push(["Not yet chosen","warn"]);return f;}
   const p=IX.p[g.pid];if(p&&IX.hh[p.hh]&&IX.hh[p.hh].ng!==g.id)f.push(["Now lives outside this group","warn"]);
   if(g.sex==="M"&&!ngAdj(g).some(o=>o.ln&&o.sex==="F"))f.push(["No woman Leader Neighbor in a neighbouring group","bad"]);return f;}
-async function ngSetLn(g,pid,code,pin){const p=IX.p[pid],t=IX.w[g.ca];if(!p||!t)return "Choose a person.";let w=IX.w[g.ln];
-  if(live()){if(g.pid===pid)return "";const r=await rpc("cmd_save_worker",{p_token:L.auth.token,p_worker:{role:"ln",name:p.name,code,lnt:t.id},p_pin:pin});
+const ngFreeLns=()=>S.w.filter(w=>w.role==="ln"&&w.active!==false&&!PLAN.g.some(g=>g.ln===w.id)).sort((a,b)=>a.name<b.name?-1:1);   // sign-ins made on the Workers page, for example for training, that no group uses yet
+async function ngSetLn(g,pid,code,pin,acct){const p=IX.p[pid],t=IX.w[g.ca];if(!p||!t)return "Choose a person.";let w=IX.w[g.ln];
+  if(live()){if(g.pid===pid)return "";let r;
+    if(acct){const a=IX.w[acct];if(!a||a.role!=="ln"||PLAN.g.some(x=>x.ln===acct))return "That sign-in is no longer free. Choose another, or create a new one.";
+      r=await rpc("cmd_save_worker",{p_token:L.auth.token,p_worker:Object.assign({id:acct,name:p.name},a.lnt!==t.id?{lnt:t.id}:{}),p_pin:""});}   // the person keeps the sign-in, and the training score, she already has
+    else r=await rpc("cmd_save_worker",{p_token:L.auth.token,p_worker:{role:"ln",name:p.name,code,lnt:t.id},p_pin:pin});
     if(!r||!r.ok)return errText((r&&r.error)||"server");await refreshWorkers();w=IX.w[r.worker.id]||r.worker;}
   else if(w){w.name=p.name;w.lnt=t.id;w.cg=t.cg;}
   else{w={id:"l"+(S.w.filter(x=>x.role==="ln").reduce((m,x)=>Math.max(m,+x.id.slice(1)||0),0)+1),role:"ln",name:p.name,lnt:t.id,cg:t.cg,q:.8};S.w.push(w);}
@@ -254,8 +258,9 @@ function ngInfo(U,mem){const adm=me().role==="admin";
   const g=U.open&&ngIx(U.open);if(!g)return"";const e=mem.get(g.id),t=IX.w[g.ca],both=PLAN.st==="fixed"&&PLAN.cst==="fixed";
   let o='<div class="card"><h2>Neighbor Group '+g.no+"</h2><p>"+e.hs.length+" households, "+e.a+" adults aged 35 or older."+(t?" Care Group "+t.cg+", Trainer "+esc(t.name)+".":"")+(g.ln?" Leader Neighbor: <b>"+esc(g.name)+"</b> ("+sexW(g.sex)+").":"")+"</p>"+ngFlags(g).map(chip).join(" ");
   if(adm&&both){const cs=ngCands(g,mem);
-    o+='<div class="q"><label class="t" for="ng_ln">'+(g.ln?"Record a different Leader Neighbor":"Leader Neighbor chosen by the group")+'</label><select id="ng_ln" style="width:100%"><option value="">Choose from the '+cs.length+" adults aged 35 or older in this group</option>"+cs.map(p=>'<option value="'+p.id+'"'+(p.id===g.pid?" selected":"")+">"+esc(p.name)+", "+sexW(p.sex)+", "+p.age+"</option>").join("")+"</select></div>"+
-      (live()?'<div class="row"><input id="ng_code" placeholder="Sign-in name" autocapitalize="none" style="width:170px"><input id="ng_pin" placeholder="PIN (6+ digits)" inputmode="numeric" style="width:150px"></div><p class="small muted">The sign-in name and PIN are what this Leader Neighbor types on the tablet.'+(g.ln?" Recording a different person makes a new sign-in; remove the earlier one on the Workers page.":"")+"</p>":"")+
+    o+='<div class="q"><label class="t" for="ng_ln">'+(g.ln?"Record a different Leader Neighbor":"Leader Neighbor chosen by the group")+'</label><select id="ng_ln" style="width:100%"><option value="">Choose from the '+cs.length+" adults aged 35 or older in this group</option>"+cs.map(p=>'<option value="'+p.id+'"'+(p.id===(U.pick||g.pid)?" selected":"")+">"+esc(p.name)+", "+sexW(p.sex)+", "+p.age+"</option>").join("")+"</select></div>"+
+      (live()&&ngFreeLns().length?'<div class="q"><label class="t" for="ng_acct">Sign-in for this Leader Neighbor</label><select id="ng_acct" style="width:100%"><option value="">Create a new sign-in (type a sign-in name and PIN below)</option>'+ngFreeLns().map(a=>'<option value="'+a.id+'"'+(U.acct===a.id?" selected":"")+'>Use the existing sign-in of '+esc(a.name)+(a.code?" ("+esc(a.code)+")":"")+"</option>").join("")+'</select><p class="small muted">If this person already has a sign-in, for example from the training, choose it here. She then keeps one sign-in, her PIN and her training score.</p></div>':"")+
+      (live()?'<div class="row"><input id="ng_code" placeholder="Sign-in name" autocapitalize="none" style="width:170px" value="'+esc(U.code||"")+'"><input id="ng_pin" placeholder="PIN (6+ digits)" inputmode="numeric" style="width:150px"></div><p class="small muted">The sign-in name and PIN are what this Leader Neighbor types on the tablet.'+(g.ln?" Recording a different person makes a new sign-in; remove the earlier one on the Workers page.":"")+"</p>":"")+
       (U.msg?'<div class="note bad">'+esc(U.msg)+"</div>":"")+'<div class="row"><button class="pri" data-act="ngsaveln" data-id="'+g.id+'">Save the Leader Neighbor</button><button data-act="ngclose">Close</button></div>';}
   return o+"</div>";}
 function ngPick(hid,pt){const U=UI.ng,M=MAPS.cur;if(!U||!M)return;U.msg="";
@@ -320,7 +325,10 @@ function pendCard(){const w=me();if(w.role!=="lnt")return"";const ids=new Set(ln
 
 if(typeof document!=="undefined"){
 document.addEventListener("input",e=>{const el=e.target;if(el.dataset&&el.dataset.ah&&UI.AH)UI.AH[el.dataset.ah]=el.value;});
-document.addEventListener("change",e=>{const el=e.target;if(el.dataset&&el.dataset.ah&&UI.AH)UI.AH[el.dataset.ah]=el.value;if(el.id==="ng_lnt"&&UI.ng){UI.ng.lnt=el.value;if(PLAN.a[el.value]){UI.ng.col=PLAN.a[el.value].col;UI.keep=true;render();}}});
+document.addEventListener("change",e=>{const el=e.target;if(el.dataset&&el.dataset.ah&&UI.AH)UI.AH[el.dataset.ah]=el.value;if(el.id==="ng_ln"&&UI.ng){UI.ng.pick=el.value;const a=document.getElementById("ng_acct"),p=IX.p[el.value];if(a&&p){const m=ngFreeLns().find(w=>w.name.trim().toLowerCase()===p.name.trim().toLowerCase());a.value=m?m.id:"";UI.ng.acct=a.value;}}
+  if(el.id==="ng_acct"&&UI.ng)UI.ng.acct=el.value;
+  if(el.id==="ng_code"&&UI.ng)UI.ng.code=el.value;
+  if(el.id==="ng_lnt"&&UI.ng){UI.ng.lnt=el.value;if(PLAN.a[el.value]){UI.ng.col=PLAN.a[el.value].col;UI.keep=true;render();}}});
 document.addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset,A=d.act,U=UI.ng,v=id=>(document.getElementById(id)||{}).value||"",again=()=>{UI.keep=true;render();};
   if(A==="ahgps")return czLocate(UI.AH);
   if(A==="pendok"||A==="pendkeep"||A==="pendno"){const h=IX.hh[d.id],p=h&&h.pend;if(!p)return;const w=me();
@@ -348,10 +356,10 @@ document.addEventListener("click",async e=>{const b=e.target.closest("button");i
     else{PLAN.cst="draft";ngLog("Unlocked the Care Group boundaries to change them");}
     PLAN.local=true;return again();}
   if(A==="ngrevert"){if(U.snap){const lg=PLAN.log;planApply(JSON.parse(U.snap));PLAN.log=lg;ngLog("Cancelled the changes");U.snap=null;U.sel.clear();U.hh=null;}return again();}
-  if(A==="ngopen"){U.open=d.id;UI.keep=false;render();const el=document.getElementById("nginfo");if(el)el.scrollIntoView({block:"center"});return;}
+  if(A==="ngopen"){U.open=d.id;U.pick=U.acct=U.code=null;UI.keep=false;render();const el=document.getElementById("nginfo");if(el)el.scrollIntoView({block:"center"});return;}
   if(A==="ngclose"){U.open=null;return again();}
-  if(A==="ngsaveln"){const g=ngIx(d.id),pid=v("ng_ln");if(!pid){U.msg="Choose a person.";return again();}if(live()&&(v("ng_code").trim().length<3||v("ng_pin").length<6)&&g.pid!==pid){U.msg="Enter a sign-in name (3 or more letters) and a PIN (6 or more digits).";return again();}
-    try{U.msg=await ngSetLn(g,pid,v("ng_code").trim(),v("ng_pin"));}catch(err){U.msg=errText(err.code||"server");}if(!U.msg)UI.note=["Saved: "+g.name+" is the Leader Neighbor of Neighbor Group "+g.no+".","good"];return again();}
+  if(A==="ngsaveln"){const g=ngIx(d.id),pid=v("ng_ln");if(!pid){U.msg="Choose a person.";return again();}if(live()&&!v("ng_acct")&&(v("ng_code").trim().length<3||v("ng_pin").length<6)&&g.pid!==pid){U.msg=ngFreeLns().length?"Choose the person's existing sign-in, or enter a new sign-in name (3 or more letters) and a PIN (6 or more digits).":"Enter a sign-in name (3 or more letters) and a PIN (6 or more digits).";return again();}
+    try{U.msg=await ngSetLn(g,pid,v("ng_code").trim(),v("ng_pin"),v("ng_acct"));}catch(err){U.msg=errText(err.code||"server");}if(!U.msg){UI.note=["Saved: "+g.name+" is the Leader Neighbor of Neighbor Group "+g.no+".","good"];U.pick=U.acct=U.code=null;}return again();}
   if(A==="ngplace"){const h=IX.hh[d.id],g=ngIx(v("ngw_"+d.id));if(!h||!g||!g.ln)return;h.ng=g.id;ngMoveHh(h,g.ln);delete h.pend;h.conf={by:me().id,d:TODAY};reown([h.id]);index();ngLog("Placed household "+h.no+" in Neighbor Group "+g.no);await planSave();return again();}
 });}
 
