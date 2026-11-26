@@ -317,6 +317,6 @@ function build(){
    LN.forEach((ln,i)=>{if(ln.id==="l20"||i%4!==1)return;const b=mine(ln.id),t=b.filter(p=>p.htn.rx&&p.age>=55).sort((x,y)=>y.age-x.age)[0];
      if(t){flag(t,i%8===1?"st":"mi",t.bp[0]?t.bp[0].d:CFG.census);if(i%12!==1)add(t,i%8===1?[MEDS[7],MEDS[8]]:[MEDS[7]]);}
      if(i%8===5){const f=b.filter(p=>!isPatient(p)&&p.age>=60)[0];if(f){flag(f,"st",f.bp[0]?f.bp[0].d:CFG.census);add(f,[MEDS[8]]);}}});}
-  czSeed();index();modSeed();index();exGps();
+  czSeed();index();modSeed();index();exGps();exPlan();index();
   if(!S.gm.some(g=>g.ln==="l20"&&g.m===CUR)){index();const n=IX.lnH.l20.flatMap(h=>IX.hhP[h.id]).filter(p=>alive(p)&&(inCare(p)||atRisk(p))).length;S.gm.push({id:uid("g"),ln:"l20",m:CUR,d:addD(mStart(CUR),6),lesson:CUR,att:Math.max(2,n-2),cohort:n});}
 }

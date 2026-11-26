@@ -39,6 +39,7 @@ function lnRow(l){const hs=IX.lnH[l.id]||[],mo=hs.filter(hhMonthly),done=mo.filt
 function vCoach(){const w=me(),ids=[...scope()],rows=ids.map(i=>lnRow(IX.w[i])),can=new Set(qCan().map(x=>x.id)),plan=qPlan();
   let o="<h1>"+(w.role==="lnt"?"My Care Group":"Quality of work")+"</h1>"+areaSel()+"<p class='muted'>Month "+(CUR+1)+" of 12, "+half()+".</p>";
   if(UI.note){o+='<div class="note">'+esc(UI.note[0])+"</div>";UI.note=null;}
+  o+=pendCard();
   o+='<div class="row" style="margin-top:6px"><h2 class="grow">Priority supervision visits</h2>'+(plan.all.length?'<span class="chip warn">'+plan.all.length+" due in all</span>":"")+"</div>";
   if(!plan.show.length)o+='<div class="note">'+(plan.all.length?"You have made "+plan.done+" observations in the last 7 days. The next ones will appear later, so that supervision does not crowd out your other work.":"No supervision visit is due.")+"</div>";
   o+=plan.show.map(p=>'<div class="card task p'+(p.rank?2:1)+'"><div class="row"><div class="grow"><h3>'+esc(qWhat(p.x,p.kind))+"</h3><h2>"+esc(p.x.name)+' <span class="muted small">'+ROLE[p.x.role]+", Care Group "+p.x.cg+"</span></h2><p class='small'>"+esc(p.why)+'</p></div><button class="pri" data-act="qivc" data-id="'+p.x.id+'" data-kind="'+p.kind+'">Observe</button></div></div>').join("");

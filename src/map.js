@@ -99,20 +99,22 @@ function mapDraw(cv,M,items,sel){mapPrep(M);const st=MV[cv.id],dpr=window.device
        const hw=Math.abs(Math.cos(ang))*tw/2+7,hh=Math.abs(Math.sin(ang))*tw/2+7;if(!free(mx-hw,my-hh,2*hw,2*hh))continue;(put[nm]=put[nm]||[]).push([mx,my]);
        c.save();c.translate(mx,my);c.rotate(ang);c.lineWidth=3;c.strokeStyle="rgba(255,255,255,.88)";c.strokeText(nm,0,0);c.fillStyle="#5d5341";c.fillText(nm,0,0);c.restore();}}
    c.textAlign="left";c.textBaseline="alphabetic";}
+  // Neighbor Groups and Care Group areas
+  if(st.ov&&PLAN.o)ngDraw(c,X,Y,k,M,st.ov,W,H);
   // households
-  const s=Math.max(9,Math.min(16,k*14)),hit=[];
+  const s=st.small?Math.max(3,Math.min(13,k*5)):Math.max(st.ov?5:9,Math.min(16,k*(st.ov?9:14))),hit=[];   // smaller squares where group outlines are drawn, so that the outlines and colours stay visible
   (items||[]).forEach(it=>{const x=X((it.lon-M.bbox[1])*1e5)+(it.dx||0)*s*.8,y=Y((it.lat-M.bbox[0])*1e5)+(it.dy||0)*s*.8;if(x<-20||x>W+20||y<-20||y>H+20)return;
     c.beginPath();c.rect(x-s/2,y-s/2,s,s);if(it.fill){c.fillStyle=it.fill;c.fill();}else{c.fillStyle="rgba(255,255,255,.75)";c.fill();}
     c.lineWidth=it.id===sel?3.5:1.6;c.strokeStyle=it.id===sel?"#000":"#1d2a27";c.stroke();hit.push([x,y,it.id]);});
-  cv._hit=hit;
+  cv._hit=hit;if(st.ov&&PLAN.o)ngDraw(c,X,Y,k,M,st.ov,W,H,true);
   c.font="11px system-ui,sans-serif";const tw=c.measureText(MAPOSM).width;c.fillStyle="rgba(255,255,255,.85)";c.fillRect(W-tw-12,H-20,tw+12,20);c.fillStyle="#333";c.fillText(MAPOSM,W-tw-6,H-6);}
 function mapFit(id,M,items,W,H){mapPrep(M);let x0=0,x1=M._w,y0=0,y1=M._h;
   const P=(items||[]).map(it=>[(it.lon-M.bbox[1])*1e5,(it.lat-M.bbox[0])*1e5]);
   if(P.length){x0=Math.min(...P.map(p=>p[0]))-120;x1=Math.max(...P.map(p=>p[0]))+120;y0=Math.min(...P.map(p=>p[1]))-120;y1=Math.max(...P.map(p=>p[1]))+120;}
   MV[id]={cx:(x0+x1)/2*M._kx,cy:(y0+y1)/2,k:Math.min(W/((x1-x0)*M._kx||1),H/((y1-y0)||1))*.94};}
 /* attach a map to a canvas already in the page */
-function mapMount(id,M,items,onPick,fitAll){const cv=document.getElementById(id);if(!cv||!M)return;
-  if(!MV[id]||MV[id].m!==M){mapFit(id,M,fitAll?null:items,cv.clientWidth,cv.clientHeight);MV[id].m=M;}
+function mapMount(id,M,items,onPick,fitAll,fitTo){const cv=document.getElementById(id);if(!cv||!M)return;
+  if(!MV[id]||MV[id].m!==M){mapFit(id,M,fitAll?null:fitTo||items,cv.clientWidth,cv.clientHeight);MV[id].m=M;}
   const st=MV[id],draw=()=>{if(!cv._raf)cv._raf=requestAnimationFrame(()=>{cv._raf=0;mapDraw(cv,M,items,st.sel);});};draw();
   const pts=new Map();let moved=0,pd=0;
   const zoom=(f,px,py)=>{const W=cv.clientWidth,H=cv.clientHeight,k2=Math.max(.02,Math.min(12,st.k*f));const wx=st.cx+(px-W/2)/st.k,wy=st.cy-(py-H/2)/st.k;st.cx=wx-(px-W/2)/k2;st.cy=wy+(py-H/2)/k2;st.k=k2;draw();};
@@ -120,9 +122,9 @@ function mapMount(id,M,items,onPick,fitAll){const cv=document.getElementById(id)
   cv.onpointermove=e=>{const p=pts.get(e.pointerId);if(!p)return;const dx=e.offsetX-p[0],dy=e.offsetY-p[1];pts.set(e.pointerId,[e.offsetX,e.offsetY]);
     if(pts.size===1){st.cx-=dx/st.k;st.cy+=dy/st.k;moved+=Math.abs(dx)+Math.abs(dy);draw();}
     else if(pts.size===2){const a=[...pts.values()],d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);if(pd>0)zoom(d/pd,(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2);pd=d;moved=99;}};
-  cv.onpointerup=cv.onpointercancel=e=>{pts.delete(e.pointerId);if(moved<6&&onPick){let best=null,bd=22;for(const h of cv._hit||[]){const d=Math.hypot(h[0]-e.offsetX,h[1]-e.offsetY);if(d<bd){bd=d;best=h[2];}}st.sel=best;draw();onPick(best);}};
+  cv.onpointerup=cv.onpointercancel=e=>{pts.delete(e.pointerId);if(moved<6&&onPick){let best=null,bd=22;for(const h of cv._hit||[]){const d=Math.hypot(h[0]-e.offsetX,h[1]-e.offsetY);if(d<bd){bd=d;best=h[2];}}st.sel=best;draw();onPick(best,[(st.cx+(e.offsetX-cv.clientWidth/2)/st.k)/M._kx,st.cy-(e.offsetY-cv.clientHeight/2)/st.k]);}};
   cv.onwheel=e=>{e.preventDefault();zoom(e.deltaY<0?1.25:.8,e.offsetX,e.offsetY);};
-  cv._zoom=f=>zoom(f,cv.clientWidth/2,cv.clientHeight/2);cv._fit=all=>{mapFit(id,M,all?null:items,cv.clientWidth,cv.clientHeight);const n=MV[id];st.cx=n.cx;st.cy=n.cy;st.k=n.k;MV[id]=st;draw();};}
+  cv._zoom=f=>zoom(f,cv.clientWidth/2,cv.clientHeight/2);cv._fit=all=>{mapFit(id,M,all?null:fitTo||items,cv.clientWidth,cv.clientHeight);const n=MV[id];st.cx=n.cx;st.cy=n.cy;st.k=n.k;MV[id]=st;draw();};}
 const mapBox=(id,h)=>'<div class="mapwrap"><canvas id="'+id+'" class="mapcv" style="height:'+(h||"62vh")+'"></canvas><div class="mapbtn"><button data-act="mapz" data-id="'+id+'" data-v="in" aria-label="Zoom in">+</button><button data-act="mapz" data-id="'+id+'" data-v="out" aria-label="Zoom out">−</button><button data-act="mapz" data-id="'+id+'" data-v="fit">Households</button><button data-act="mapz" data-id="'+id+'" data-v="all">Whole area</button></div></div><p class="small muted">Map data '+MAPOSM+". Drag to move the map. Pinch, or use + and −, to zoom. Street names and landmarks appear as you zoom in"+(MAPS.cur&&(MAPS.cur.p||[]).length?": M mosque, C church, S school, + clinic or hospital, B bank, Mk market, T public toilet.":".")+"</p>";
 
 /* household squares */
@@ -130,7 +132,7 @@ const MCOL={none:"#2e9a5b",htn:"#2a6fdb",dm:"#d8402f",both:"#8a41c9",vac:"#9aa3a
 const mapField=r=>r==="ln"||r==="lnt";   // Leader Neighbors and Trainers: their own households, coloured by visit schedule, never by condition
 const mapsUrl=g=>"https://www.google.com/maps/search/?api=1&query="+g.lat+","+g.lon;
 function mapItems(){const r=me().role,ids=scope(),full=r==="admin"||r==="prom",out=[],seen={};
-  for(const h of S.hh){const g=h.cen&&h.cen.gps;if(!g)continue;const own=(IX.w[h.ln]||{}).role;
+  for(const h of S.hh){const g=h.cen&&h.cen.gps;if(!g||(h.pend&&(h.pend.st==="no"||(mapField(r)&&(h.pend.adm||h.pend.to)))))continue;const own=(IX.w[h.ln]||{}).role;
     if(!(r==="admin"||(r==="prom"&&(own==="enum"||ids.has(h.ln)))||(r==="enum"&&h.ln===UI.who)||(mapField(r)&&ids.has(h.ln))))continue;
     const ps=(IX.hhP[h.id]||[]).filter(alive),H=ps.some(p=>p.htn.dx),D=ps.some(p=>p.dm.dx),st=h.cen.st;
     let cls=st==="vac"?"vac":st!=="done"?"open":mapField(r)?(hhMonthly(h)?"mon":"none"):!full?"none":H&&D?"both":H?"htn":D?"dm":"none";
@@ -149,17 +151,17 @@ function vCMap(){const r=me().role,full=r==="admin"||r==="prom",field=mapField(r
   if(field){const mine=S.hh.filter(h=>scope().has(h.ln)).length;
     o+=areaSel()+"<p class='muted'>"+items.length+" of "+mine+" household"+(mine===1?"":"s")+" "+(items.length===1?"has":"have")+" a location from the census. Tap a square to see whose house it is and how to find it.</p>";}
   else o+="<p class='muted'>"+items.length+" household"+(items.length===1?"":"s")+" with a location."+(noLoc?" "+noLoc+" recorded without a location, so not on the map.":"")+(outside?" "+outside+" lie outside the map area and are drawn on a blank background.":"")+(full?" The colours for hypertension and diabetes are shown only to the Administrator and the Promoters.":"")+"</p>";
-  o+=mapBox("cmap")+mapLegend(full)+'<div id="mapinfo"></div>';
+  o+=mapBox("cmap")+mapLegend(full)+ngLegend()+(field&&ngOverlay()?'<p class="small muted">The outline shows '+(r==="ln"?"your Neighbor Group":UI.area==="all"?"the Neighbor Groups in your Care Group area":"this Leader Neighbor's Neighbor Group")+".</p>":"")+'<div id="mapinfo"></div>';
   if(r==="admin")o+=mapAreaCard();
   const key=UI.who+"|"+UI.area,foc=UI.mapFocus;UI.mapFocus=null;if(MV.cmap&&MV.cmap.key!==key)delete MV.cmap;
-  setTimeout(()=>{mapMount("cmap",M,items,mapPick);const st=MV.cmap;if(!st)return;st.key=key;
+  setTimeout(()=>{mapMount("cmap",M,items,mapPick);const st=MV.cmap;if(!st)return;st.key=key;st.ov=ngOverlay();
     const it=foc&&items.find(i=>i.id===foc);if(it){mapPrep(M);st.cx=(it.lon-M.bbox[1])*1e5*M._kx;st.cy=(it.lat-M.bbox[0])*1e5;st.k=Math.max(st.k,2.2);st.sel=foc;const cv=document.getElementById("cmap");mapDraw(cv,M,items,foc);mapPick(foc);}},0);return o;}
 /* household page: where the house is, from the census */
 function hhWhere(h){const c=h.cen,g=c&&c.gps;if(!c)return"";
   if(!g)return '<div class="card"><h3>Where this house is</h3><p class="small">'+(c.lm?esc(c.lm)+". ":"")+"No location was recorded for this house at the census.</p></div>";
   let o='<div class="card"><h3>Where this house is</h3><p>'+(c.lm?esc(c.lm)+".":"No description was written at the census.")+"</p>";
   if(MAPS.cur){const key=h.id;if(MV.hhmap&&MV.hhmap.key!==key)delete MV.hhmap;o+=mapBox("hhmap","240px");
-    setTimeout(()=>{mapMount("hhmap",MAPS.cur,[{id:h.id,lat:g.lat,lon:g.lon,fill:"#111"}],null);if(MV.hhmap)MV.hhmap.key=key;},0);}
+    setTimeout(()=>{mapMount("hhmap",MAPS.cur,[{id:h.id,lat:g.lat,lon:g.lon,fill:"#111"}],null);if(MV.hhmap){MV.hhmap.key=key;MV.hhmap.ov=ngOverlay();}},0);}
   else if(MAPS.err)o+='<p class="small muted">The map could not be loaded. Connect to the internet once and open this page again.</p>';
   else{mapLoad(()=>{if(UI.mode==="hh"&&UI.hh===h.id)render();});o+='<p class="small muted">Loading the map…</p>';}
   o+='<div class="row">'+(TABS[me().role].some(t=>t[0]==="cmap")?'<button data-act="showmap" data-id="'+h.id+'">Show among the other households</button>':"")+'<a class="btnlink" href="'+mapsUrl(g)+'" target="_blank" rel="noopener">Open in a maps app</a></div>'+

@@ -27,8 +27,8 @@ function gpsHtml(o){const g=o.gps;let h="";
 function czLocate(o){if(!navigator.geolocation){o.gpsMsg="This tablet cannot give a location. Describe the place well below.";UI.keep=true;return render();}
   o.gpsBusy=true;o.gpsMsg="";UI.keep=true;render();
   navigator.geolocation.getCurrentPosition(p=>{o.gpsBusy=false;const g={lat:+p.coords.latitude.toFixed(6),lon:+p.coords.longitude.toFixed(6),acc:Math.round(p.coords.accuracy),t:Date.now()};
-      if(!o.gps||g.acc<=o.gps.acc)o.gps=g;if(UI.F===o||UI.gt===o){UI.keep=true;render();}if(typeof afterAction==="function")afterAction();},
-    e=>{o.gpsBusy=false;o.gpsMsg=e.code===1?"Location is switched off for this app. Ask the supervisor to allow it. For now, describe the place well below.":"No location found. Step outside, away from walls and roofs, and try again. If it still fails, describe the place well below.";if(UI.F===o||UI.gt===o){UI.keep=true;render();}},
+      if(!o.gps||o.gps.map||g.acc<=o.gps.acc)o.gps=g;if(UI.F===o||UI.gt===o||UI.AH===o){UI.keep=true;render();}if(typeof afterAction==="function")afterAction();},
+    e=>{o.gpsBusy=false;o.gpsMsg=e.code===1?"Location is switched off for this app. Ask the supervisor to allow it. For now, describe the place well below.":"No location found. Step outside, away from walls and roofs, and try again. If it still fails, describe the place well below.";if(UI.F===o||UI.gt===o||UI.AH===o){UI.keep=true;render();}},
     {enableHighAccuracy:true,timeout:30000,maximumAge:0});}
 
 /* the form */

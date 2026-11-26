@@ -145,6 +145,14 @@ begin
   if v_id is not null then
     select * into w from public.cmd_workers where id = v_id;
     if not found then return jsonb_build_object('ok', false, 'error', 'no_such_worker'); end if;
+    -- a Leader Neighbor moved to another Trainer's Care Group (build 0.31): her households and records follow her
+    if w.role = 'ln' and coalesce(p_worker->>'lnt', '') <> '' and (p_worker->>'lnt') is distinct from w.lnt_id then
+      select cg, prom_id into v_cg, v_prom from public.cmd_workers where id = p_worker->>'lnt' and role = 'lnt' and active;
+      if not found then return jsonb_build_object('ok', false, 'error', 'no_such_trainer'); end if;
+      v_lnt := p_worker->>'lnt';
+      update public.cmd_workers set lnt_id = v_lnt, cg = v_cg where id = v_id;
+      update public.cmd_records set lnt = v_lnt, prom = v_prom, seq = nextval('public.cmd_seq'), updated_at = now() where ln = v_id;
+    end if;
     update public.cmd_workers set
       name = coalesce(nullif(trim(p_worker->>'name'), ''), name),
       active = coalesce((p_worker->>'active')::boolean, active),
@@ -410,5 +418,54 @@ end $$;
 
 revoke execute on function public.cmd_map_put(text, text, int, int, text, jsonb), public.cmd_map_reset(text), public.cmd_map_info(text), public.cmd_map_get(text, text, int) from public;
 grant execute on function public.cmd_map_put(text, text, int, int, text, jsonb), public.cmd_map_reset(text), public.cmd_map_info(text), public.cmd_map_get(text, text, int) to anon, authenticated;
+
+-- Neighbor Groups and Care Group areas (build 0.31): the plan fixed by the administrator, and a log of who changed it and when.
+-- The plan is kept whole in the settings row 'plan'. It holds outlines, group numbers, Leader Neighbor names and Trainers; no health information.
+create table if not exists public.cmd_plan_log (
+  id      bigserial primary key,
+  at      timestamptz not null default now(),
+  by_id   text,
+  by_name text,
+  v       text,
+  note    text
+);
+alter table public.cmd_plan_log enable row level security;
+revoke all on public.cmd_plan_log from anon, authenticated;
+
+-- Store the plan. Administrator only.
+create or replace function public.cmd_plan_set(p_token text, p_body jsonb, p_note text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare me public.cmd_workers;
+begin
+  me := public.cmd_me(p_token);
+  if me.role <> 'admin' then return jsonb_build_object('ok', false, 'error', 'admin_only'); end if;
+  if jsonb_typeof(p_body) is distinct from 'object' or jsonb_typeof(p_body->'g') is distinct from 'array' or coalesce(p_body->>'v', '') = '' or length(p_body::text) > 2000000
+    then return jsonb_build_object('ok', false, 'error', 'bad_input'); end if;
+  insert into public.cmd_settings(key, body) values ('plan', p_body)
+    on conflict (key) do update set body = excluded.body, updated_at = now();
+  insert into public.cmd_plan_log(by_id, by_name, v, note) values (me.id, me.name, p_body->>'v', left(coalesce(p_note, ''), 500));
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- Which plan is in use: any signed-in worker. A tablet fetches the plan itself only when this version differs from its own.
+create or replace function public.cmd_plan_info(p_token text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare me public.cmd_workers;
+begin
+  me := public.cmd_me(p_token);
+  return coalesce((select jsonb_build_object('v', body->'v', 'at', updated_at) from public.cmd_settings where key = 'plan'), jsonb_build_object('v', null));
+end $$;
+
+-- The plan: any signed-in worker.
+create or replace function public.cmd_plan_get(p_token text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare me public.cmd_workers;
+begin
+  me := public.cmd_me(p_token);
+  return (select body from public.cmd_settings where key = 'plan');
+end $$;
+
+revoke execute on function public.cmd_plan_set(text, jsonb, text), public.cmd_plan_info(text), public.cmd_plan_get(text) from public;
+grant execute on function public.cmd_plan_set(text, jsonb, text), public.cmd_plan_info(text), public.cmd_plan_get(text) to anon, authenticated;
 
 notify pgrst, 'reload schema';

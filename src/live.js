@@ -25,7 +25,7 @@ const cfgPart=()=>({start:CFG.start,cut:CFG.adrs.cut,model:CFG.model,mods:CFG.mo
 function applyCfg(c){if(!c)return;if(c.start)setStart(c.start);if(c.cut>0)CFG.adrs.cut=c.cut;if(c.model)Object.assign(CFG.model,c.model);CFG.mods={tb:!!(c.mods&&c.mods.tb),hiv:!!(c.mods&&c.mods.hiv)};CFG.units=c.units==="us"?"us":"metric";}
 function store(){if(!live()||!IDB.db)return;const recs={};for(const ty of TYPES)recs[ty]=S[ty];
   IDB.set("state",{mode:L.mode,auth:L.auth,seq:L.seq,meta:L.meta,dirty:L.dirty,last:L.last,cfg:cfgPart(),w:S.w,recs});}
-function wipeRecords(){for(const ty of TYPES)S[ty].length=0;S.w.length=0;SNAP.clear();L.meta={};L.dirty={};L.seq=0;L.last=null;}
+function wipeRecords(){for(const ty of TYPES)S[ty].length=0;S.w.length=0;SNAP.clear();L.meta={};L.dirty={};L.seq=0;L.last=null;planReset();}
 
 /* which worker owns a record: the household's Leader Neighbor; for a QIVC, the worker observed */
 function ownerOf(ty,r){if(ty==="hh")return r.ln;if(ty==="gm")return r.ln;if(ty==="q")return r.wid;
@@ -70,7 +70,7 @@ async function sync(){if(!live()||L.busy||!L.auth||!L.auth.token)return;if(!navi
       if(batch.length)await rpc("cmd_push",{p_token:L.auth.token,p_records:batch});
       for(const k of keys.slice(i,i+200))delete L.dirty[k];}
     await refreshWorkers();
-    const cfg=await rpc("cmd_settings_get",{p_token:L.auth.token});applyCfg(cfg);lastCfg=JSON.stringify(cfgPart());mapSync();
+    const cfg=await rpc("cmd_settings_get",{p_token:L.auth.token});applyCfg(cfg);lastCfg=JSON.stringify(cfgPart());mapSync();await planSync();
     let got=0,guard=0;
     while(guard++<200){const r=await rpc("cmd_pull",{p_token:L.auth.token,p_since:L.seq});got+=applyPulled(r.records||[]);L.seq=r.seq||L.seq;if(!r.count||r.count<1000)break;}
     index();scan();L.dirty={...L.dirty};L.last=Date.now();
@@ -83,7 +83,7 @@ setInterval(()=>{if(live()&&document.visibilityState==="visible")sync();},5*60*1
 
 /* sign-in, first-time setup, sign-out */
 async function signIn(fn,args){L.msg="";try{const res=await rpc(fn,args);if(!res||!res.ok){L.msg=errText(res&&res.error||"server");return render();}
-    const same=L.auth&&L.auth.worker&&L.auth.worker.id===res.worker.id;if(!same)wipeRecords();   // a different worker never sees the previous worker's records
+    const same=L.auth&&L.auth.worker&&L.auth.worker.id===res.worker.id;if(!same){wipeRecords();IDB.set("plan",null);}   // a different worker never sees the previous worker's records
     if(!same)setStart(TODAY);L.mode="live";LIVE=true;L.auth={token:res.token,worker:res.worker};UI.who=res.worker.id;if(!S.w.some(w=>w.id===res.worker.id))S.w.push(res.worker);index();
     UI.tab=null;UI.mode=null;store();render();await sync();render();}
   catch(e){L.msg=errText(e.code);render();}}
@@ -126,19 +126,6 @@ async function refreshWorkers(){const ws=await rpc("cmd_workers_list",{p_token:L
 async function saveWorker(body,pin){try{const r=await rpc("cmd_save_worker",{p_token:L.auth.token,p_worker:body,p_pin:pin||""});L.msg=r&&r.ok?"Saved: "+r.worker.name+(r.worker.code?" (sign-in name "+r.worker.code+")":""):errText(r&&r.error||"server");await refreshWorkers();}
   catch(e){L.msg=errText(e.code);}render();}
 
-/* add a household (Leader Neighbor or Trainer) */
-function vAddHh(){const w=me(),lns=w.role==="ln"?[w]:S.w.filter(x=>x.role==="ln"&&x.lnt===w.id&&x.active!==false);
-  if(!lns.length)return '<button class="link" data-act="back">‹ Back</button><div class="card"><p>This Care Group has no Leader Neighbors yet. The administrator adds them on the Workers page.</p></div>';
-  return '<button class="link" data-act="back">‹ Back</button><h1>Add a household</h1><div class="card">'+fld("nh_head","Head of household: name")+
-    '<div class="row"><div class="q grow"><label class="t" for="nh_sex">Sex</label><select id="nh_sex"><option value="F">Woman</option><option value="M">Man</option></select></div><div class="q grow"><label class="t" for="nh_age">Age in years</label><input id="nh_age" type="number" min="18" max="110" inputmode="numeric"></div></div><p class="small muted">The head of household is added as the first adult. Add the other adults on the next screen.</p>'+
-    (lns.length>1||w.role!=="ln"?'<div class="q"><label class="t" for="nh_ln">Leader Neighbor</label><select id="nh_ln">'+lns.map(l=>'<option value="'+l.id+'">'+esc(l.name)+"</option>").join("")+"</select></div>":"")+
-    '<div class="q"><label class="t" for="nh_nhis">National Health Insurance (NHIS) active?</label><select id="nh_nhis"><option value="">Not known</option><option value="y">Yes</option><option value="n">No</option></select></div>'+
-    (L.msg?'<div class="note bad">'+esc(L.msg)+"</div>":"")+'<div class="row"><button class="pri" data-act="savehh">Save and add the adults</button></div></div>';}
-function saveHh(){const head=$("#nh_head").value.trim();const hsex=$("#nh_sex").value,hage=+$("#nh_age").value,bad=!head?"Enter the name of the head of household.":!(hage>=18&&hage<=110)?"Enter the age of the head of household (18 or older).":"";
-  if(bad){const keep={nh_head:head,nh_sex:hsex,nh_age:$("#nh_age").value,nh_nhis:$("#nh_nhis").value,nh_ln:($("#nh_ln")||{}).value};L.msg=bad;render();for(const k in keep){const e=$("#"+k);if(e&&keep[k]!=null)e.value=keep[k];}return;}L.msg="";
-  const lnId=($("#nh_ln")||{}).value||me().id,ln=IX.w[lnId],h={id:uid("h"),ln:lnId,no:"CG"+(ln.cg||"")+"-"+Math.random().toString(36).slice(2,6).toUpperCase(),head,nhis:$("#nh_nhis").value==="y",topics:[],reg:TODAY};
-  S.hh.push(h);S.p.push({id:uid("p"),hh:h.id,name:head,sex:hsex,age:hage,bp:[],glu:[],htn:{},dm:{},meds:[]});index();UI.hh=h.id;UI.mode="hh";render();}
-
 /* actions */
 document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset,A=d.act;
   if(A==="welcome"){L.welcome=d.w;L.msg="";return render();}
@@ -147,7 +134,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
   if(A==="setup"){if($("#su_pin").value!==$("#su_pin2").value){L.msg="The two PINs are not the same.";return render();}return signIn("cmd_bootstrap",{p_name:$("#su_name").value,p_code:$("#su_code").value,p_pin:$("#su_pin").value});}
   if(A==="syncnow")return sync().then(render);
   if(A==="signout")return signOut();
-  if(A==="addhh"){L.msg="";UI.back=UI.tab;UI.mode="addhh";return render();}
+  if(A==="addhh"){L.msg="";UI.AH=null;UI.back=UI.tab;UI.mode="addhh";return render();}
   if(A==="savehh")return saveHh();
   if(A==="addworker"){const r=d.role,v=k=>($("#nw_"+r+"_"+k)||{}).value||"";const body={role:r,name:v("name").trim(),code:v("code").trim()};if(r==="lnt")body.prom=v("sup");if(r==="ln")body.lnt=v("sup");return saveWorker(body,v("pin"));}
   if(A==="setpin")return saveWorker({id:$("#pw_who").value},$("#pw_pin").value);
@@ -158,7 +145,8 @@ document.addEventListener("change",e=>{const el=e.target;if(el.dataset.cfgstart&
 async function boot(){await IDB.open();await mapBoot();const st=IDB.db?await IDB.get("state"):null;
   if(st&&st.mode==="live"&&st.auth){L.mode="live";LIVE=true;L.auth=st.auth;L.seq=st.seq||0;L.meta=st.meta||{};L.dirty=st.dirty||{};L.last=st.last||null;applyCfg(st.cfg);
     S.w.push(...(st.w||[]));for(const ty of TYPES)S[ty].push(...((st.recs||{})[ty]||[]));index();for(const ty of TYPES)for(const r of S[ty])SNAP.set(rk(ty,r.id),JSON.stringify(r));
-    lastCfg=JSON.stringify(cfgPart());if(L.auth.worker)UI.who=L.auth.worker.id;}
+    lastCfg=JSON.stringify(cfgPart());if(L.auth.worker)UI.who=L.auth.worker.id;
+    try{const pl=await IDB.get("plan");if(pl)planApply(pl);}catch(e){}}
   render();if(live()&&L.auth.token)sync();}
 
 /* The welcome screen comes first; the app's own screens need a worker (example or signed in). */
