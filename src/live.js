@@ -128,8 +128,8 @@ async function saveWorker(body,pin){try{const r=await rpc("cmd_save_worker",{p_t
 
 /* actions */
 document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset,A=d.act;
-  if(A==="welcome"){L.welcome=d.w;L.msg="";return render();}
-  if(A==="example"){L.mode="example";LIVE=false;for(const ty of TYPES)S[ty].length=0;S.w.length=0;SEQ=0;build();index();roleSel();$("#role").hidden=false;UI.tab=null;UI.mode=null;return render();}
+  if(A==="welcome"){L.welcome=d.w;L.msg="";if(d.w==="start"&&live()&&!(L.auth&&L.auth.token)){L.mode=null;LIVE=false;}return render();}   // signed out: Back leaves the sign-in screen; what is stored on this device for the signed-in worker is not touched
+  if(A==="example"){L.mode="example";LIVE=false;UI.who="adm";UI.area="all";for(const ty of TYPES)S[ty].length=0;S.w.length=0;SEQ=0;build();index();roleSel();$("#role").hidden=false;UI.tab=null;UI.mode=null;return render();}
   if(A==="login")return signIn("cmd_login",{p_code:$("#li_code").value,p_pin:$("#li_pin").value});
   if(A==="setup"){if($("#su_pin").value!==$("#su_pin2").value){L.msg="The two PINs are not the same.";return render();}return signIn("cmd_bootstrap",{p_name:$("#su_name").value,p_code:$("#su_code").value,p_pin:$("#su_pin").value});}
   if(A==="syncnow")return sync().then(render);
@@ -143,11 +143,12 @@ document.addEventListener("change",e=>{const el=e.target;if(el.dataset.cfgstart&
 
 /* start-up: a signed-in worker goes straight to her work; otherwise the welcome screen */
 async function boot(){await IDB.open();await mapBoot();const st=IDB.db?await IDB.get("state"):null;
-  if(st&&st.mode==="live"&&st.auth){L.mode="live";LIVE=true;L.auth=st.auth;L.seq=st.seq||0;L.meta=st.meta||{};L.dirty=st.dirty||{};L.last=st.last||null;applyCfg(st.cfg);
+  const ex=location.hash==="#example";
+  if(!ex&&st&&st.mode==="live"&&st.auth){L.mode="live";LIVE=true;L.auth=st.auth;L.seq=st.seq||0;L.meta=st.meta||{};L.dirty=st.dirty||{};L.last=st.last||null;applyCfg(st.cfg);
     S.w.push(...(st.w||[]));for(const ty of TYPES)S[ty].push(...((st.recs||{})[ty]||[]));index();for(const ty of TYPES)for(const r of S[ty])SNAP.set(rk(ty,r.id),JSON.stringify(r));
     lastCfg=JSON.stringify(cfgPart());if(L.auth.worker)UI.who=L.auth.worker.id;
     try{const pl=await IDB.get("plan");if(pl)planApply(pl);}catch(e){}}
-  render();if(live()&&L.auth.token)sync();}
+  render();if(ex){const b=document.querySelector('button[data-act="example"]');if(b)b.click();}else if(live()&&L.auth.token)sync();}
 
 /* The welcome screen comes first; the app's own screens need a worker (example or signed in). */
 const renderApp=render;
