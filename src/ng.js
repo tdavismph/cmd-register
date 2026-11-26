@@ -325,6 +325,7 @@ function pendCard(){const w=me();if(w.role!=="lnt")return"";const ids=new Set(ln
 
 if(typeof document!=="undefined"){
 document.addEventListener("input",e=>{const el=e.target;if(el.dataset&&el.dataset.ah&&UI.AH)UI.AH[el.dataset.ah]=el.value;});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&e.target.id==="ng_pw"){e.preventDefault();const b=document.querySelector('button[data-act="ngunlock"]');if(b)b.click();}});   // Enter in the password box unlocks, like the button
 document.addEventListener("change",e=>{const el=e.target;if(el.dataset&&el.dataset.ah&&UI.AH)UI.AH[el.dataset.ah]=el.value;if(el.id==="ng_ln"&&UI.ng){UI.ng.pick=el.value;const a=document.getElementById("ng_acct"),p=IX.p[el.value];if(a&&p){const m=ngFreeLns().find(w=>w.name.trim().toLowerCase()===p.name.trim().toLowerCase());a.value=m?m.id:"";UI.ng.acct=a.value;}}
   if(el.id==="ng_acct"&&UI.ng)UI.ng.acct=el.value;
   if(el.id==="ng_code"&&UI.ng)UI.ng.code=el.value;
