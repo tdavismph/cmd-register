@@ -130,6 +130,15 @@ const gluPos=g=>g.t==="a1c"?g.v>=CFG.glu.a1c:g.t==="finger"&&!g.fast?g.v>=CFG.gl
 const screenPos=p=>!p.dm.dx&&!p.dm.ruledOut&&fingers(p).some(gluPos);
 function riskScore(p){if(!p.waist)return null;const A=CFG.adrs,h=p.htn.dx||elev(lastBP(p))?1:0;return 100/(1+Math.exp(-(A.b0+A.age*p.age+A.waist*p.waist+A.htn*h)));}
 const riskHigh=p=>{const r=riskScore(p);return r!=null&&r>CFG.adrs.cut;};
+/* "i" button: touch it to read about the African Diabetes Risk Score. With a person, it also shows that person's own figures. */
+function adrsInfo(p){const A=CFG.adrs,w=x=>imp()?(x/2.54).toFixed(1)+" inches":Math.round(x)+" cm",sc=(age,wa,h)=>100/(1+Math.exp(-(A.b0+A.age*age+A.waist*wa+A.htn*h)));let own="";
+  if(p&&p.waist){const h=p.htn.dx||elev(lastBP(p));own="<p><b>"+esc(p.name)+" scores "+riskScore(p).toFixed(1)+".</b> Age "+p.age+", waist "+w(p.waist)+", high blood pressure: "+(h?"yes":"no")+".</p>";}
+  return '<details class="inf"><summary aria-label="About the African Diabetes Risk Score" title="About this score">i</summary><div class="infbox"><h4>African Diabetes Risk Score</h4>'+own+
+    "<p>A way to estimate, without a blood test, how likely it is that an adult has diabetes and does not know it.</p>"+
+    "<p>It uses three things: age, waist measurement, and whether the person has high blood pressure (told by a health worker, or a raised reading). Being older, having a larger waist and having high blood pressure each raise the score.</p>"+
+    "<p>The score runs from 0 to 100. A person aged 50 with a waist of "+w(95)+" and no high blood pressure scores about "+sc(50,95,0).toFixed(1)+". A person aged 65 with a waist of "+w(110)+" and high blood pressure scores about "+sc(65,110,1).toFixed(1)+".</p>"+
+    "<p>In this project a score above "+A.cut+" counts as raised. A raised score is not a diagnosis. An adult aged 35 or older with a raised score is visited every month, and the blood sugar test shows whether the person has diabetes.</p>"+
+    "<p class='small muted'>The score was developed from surveys in Tanzania, Senegal and Guinea (Mayige, 2014) and is used in South Africa. It has not yet been checked in Ghana.</p></div></details>";}
 function raisedOnce(p){const l=lastBP(p);return !p.htn.dx&&!p.htn.ruledOut&&elev(l);}
 const atRisk=p=>alive(p)&&!isPatient(p)&&(raisedOnce(p)||screenPos(p)||(p.age>=35&&riskHigh(p)));
 const hhMonthly=h=>(IX.hhP[h.id]||[]).some(p=>alive(p)&&(inCare(p)||atRisk(p)));
