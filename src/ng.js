@@ -170,7 +170,7 @@ function reown(hids){if(typeof live!=="function"||!live()||!hids.length)return;c
 /* --- drawing on a map --- */
 const hexA=(h,a)=>"rgba("+parseInt(h.slice(1,3),16)+","+parseInt(h.slice(3,5),16)+","+parseInt(h.slice(5,7),16)+","+a+")";
 function ngOverlay(){const w=me();if(!w||!PLAN.o||!PLAN.g.length)return null;const r=w.role;
-  if(r==="admin"||r==="prom")return ngOn()?{g:PLAN.g}:null;if(!ngOn())return null;
+  if(mapFull(r))return ngOn()?{g:PLAN.g}:null;if(!ngOn())return null;
   if(r==="lnt"){const g=PLAN.g.filter(x=>x.ca===w.id&&(UI.area==="all"||x.ln===UI.area));return g.length?{g,own:UI.area!=="all"}:null;}
   if(r==="ln"){const g=PLAN.g.filter(x=>x.ln===w.id);return g.length?{g,own:true}:null;}return null;}
 function ngDraw(c,X,Y,k,M,ov,W,H,labels){const ox=(PLAN.o[1]-M.bbox[1])*1e5,oy=(PLAN.o[0]-M.bbox[0])*1e5,FT="system-ui,sans-serif";
@@ -189,7 +189,7 @@ function ngDraw(c,X,Y,k,M,ov,W,H,labels){const ox=(PLAN.o[1]-M.bbox[1])*1e5,oy=(
     g.ring.forEach((r,ri)=>{const nb=g.nb[ri],n=r.length/2;for(let i=0;i<n;i++){const o=nb[i]>=0?PLAN.g[nb[i]]:null;if(!ov.own&&o&&o.ca===g.ca)continue;
       const j=(i+1)%n,x1=r[2*i],y1=r[2*i+1],x2=r[2*j],y2=r[2*j+1],dx=x2-x1,dy=y2-y1,d=Math.hypot(dx,dy)||1,nx=-dy/d*2,ny=dx/d*2;
       c.moveTo(X(x1+ox)+nx,Y(y1+oy)-ny);c.lineTo(X(x2+ox)+nx,Y(y2+oy)-ny);}});c.stroke();}}
-function ngLegend(){if(!ngOn()||!["admin","prom"].includes(me().role))return"";const T=ngLnts().filter(t=>PLAN.a[t.id]&&PLAN.g.some(g=>g.ca===t.id));if(!T.length)return '<p class="small muted">The dashed outlines are the Neighbor Groups.</p>';
+function ngLegend(){if(!ngOn()||!mapFull(me().role))return"";const T=ngLnts().filter(t=>PLAN.a[t.id]&&PLAN.g.some(g=>g.ca===t.id));if(!T.length)return '<p class="small muted">The dashed outlines are the Neighbor Groups.</p>';
   return '<div class="row">'+T.map(t=>'<span class="lg"><i style="background:'+NGCOL[PLAN.a[t.id].col%NGCOL.length][0]+'"></i>Care Group '+t.cg+": "+esc(t.name)+"</span>").join("")+'</div><p class="small muted">Each coloured boundary is one Care Group area, served by one Trainer. The dashed outlines inside it are its Neighbor Groups; zoom in for their numbers.</p>';}
 
 /* --- the Administrator's page --- */

@@ -129,11 +129,12 @@ const mapBox=(id,h)=>'<div class="mapwrap"><canvas id="'+id+'" class="mapcv" sty
 
 /* household squares */
 const MCOL={none:"#2e9a5b",htn:"#2a6fdb",dm:"#d8402f",both:"#8a41c9",vac:"#9aa3a0",mon:"#e39b2d"};
+const mapFull=r=>r==="admin"||r==="prom"||r==="clinic";   // these roles see the colours for hypertension and diabetes
 const mapField=r=>r==="ln"||r==="lnt";   // Leader Neighbors and Trainers: their own households, coloured by visit schedule, never by condition
 const mapsUrl=g=>"https://www.google.com/maps/search/?api=1&query="+g.lat+","+g.lon;
-function mapItems(){const r=me().role,ids=scope(),full=r==="admin"||r==="prom",out=[],seen={};
+function mapItems(){const r=me().role,ids=scope(),full=mapFull(r),out=[],seen={};
   for(const h of S.hh){const g=h.cen&&h.cen.gps;if(!g||(h.pend&&(h.pend.st==="no"||(mapField(r)&&(h.pend.adm||h.pend.to)))))continue;const own=(IX.w[h.ln]||{}).role;
-    if(!(r==="admin"||(r==="prom"&&(own==="enum"||ids.has(h.ln)))||(r==="enum"&&h.ln===UI.who)||(mapField(r)&&ids.has(h.ln))))continue;
+    if(!(r==="admin"||r==="clinic"||(r==="prom"&&(own==="enum"||ids.has(h.ln)))||(r==="enum"&&h.ln===UI.who)||(mapField(r)&&ids.has(h.ln))))continue;
     const ps=(IX.hhP[h.id]||[]).filter(alive),H=ps.some(p=>p.htn.dx),D=ps.some(p=>p.dm.dx),st=h.cen.st;
     let cls=st==="vac"?"vac":st!=="done"?"open":mapField(r)?(hhMonthly(h)?"mon":"none"):!full?"none":H&&D?"both":H?"htn":D?"dm":"none";
     const key=g.lat.toFixed(5)+","+g.lon.toFixed(5),n=seen[key]=(seen[key]||0)+1,a=n>1?(n-2)*2.4:0;   // houses at the same spot are fanned out a little
@@ -142,7 +143,7 @@ function mapItems(){const r=me().role,ids=scope(),full=r==="admin"||r==="prom",o
 function mapLegend(full){const sq=(c,t)=>'<span class="lg"><i style="background:'+(c||"transparent")+'"></i>'+t+"</span>";
   if(mapField(me().role))return '<div class="row">'+sq(MCOL.mon,"Monthly group lesson and home visit")+sq(MCOL.none,"Screening visit about three times a year")+"</div>";
   return '<div class="row">'+(full?sq(MCOL.none,"Censused, no patient")+sq(MCOL.htn,"Hypertension")+sq(MCOL.dm,"Diabetes")+sq(MCOL.both,"Both"):sq(MCOL.none,"Completed"))+sq(MCOL.vac,"Vacant, or not a home")+sq(null,"Visited, not completed (call back, or refused)")+"</div>";}
-function vCMap(){const r=me().role,full=r==="admin"||r==="prom",field=mapField(r);let o="<h1>"+(field?"Household map":"Census map")+"</h1>";
+function vCMap(){const r=me().role,full=mapFull(r),field=mapField(r);let o="<h1>"+(field?"Household map":"Census map")+"</h1>";
   if(UI.note){o+='<div class="note '+(UI.note[1]||"")+'">'+esc(UI.note[0])+"</div>";UI.note=null;}
   if(!MAPS.cur){if(MAPS.err)return o+'<div class="note bad">The map could not be loaded. Connect to the internet once and open this page again.</div>'+(r==="admin"?mapAreaCard():"");
     mapLoad(()=>{if(UI.tab==="cmap"&&!UI.mode)render();});return o+'<div class="note">Loading the map…</div>';}
@@ -150,7 +151,7 @@ function vCMap(){const r=me().role,full=r==="admin"||r==="prom",field=mapField(r
   const outside=items.filter(i=>i.lat<M.bbox[0]||i.lat>M.bbox[2]||i.lon<M.bbox[1]||i.lon>M.bbox[3]).length;
   if(field){const mine=S.hh.filter(h=>scope().has(h.ln)).length;
     o+=areaSel()+"<p class='muted'>"+items.length+" of "+mine+" household"+(mine===1?"":"s")+" "+(items.length===1?"has":"have")+" a location from the census. Tap a square to see whose house it is and how to find it.</p>";}
-  else o+="<p class='muted'>"+items.length+" household"+(items.length===1?"":"s")+" with a location."+(noLoc?" "+noLoc+" recorded without a location, so not on the map.":"")+(outside?" "+outside+" lie outside the map area and are drawn on a blank background.":"")+(full?" The colours for hypertension and diabetes are shown only to the Administrator and the Promoters.":"")+"</p>";
+  else o+="<p class='muted'>"+items.length+" household"+(items.length===1?"":"s")+" with a location."+(noLoc?" "+noLoc+" recorded without a location, so not on the map.":"")+(outside?" "+outside+" lie outside the map area and are drawn on a blank background.":"")+(full?" The colours for hypertension and diabetes are shown only to the Administrator, the Promoters and the clinic staff.":"")+"</p>";
   o+=mapBox("cmap")+mapLegend(full)+ngLegend()+(field&&ngOverlay()?'<p class="small muted">The outline shows '+(r==="ln"?"your Neighbor Group":UI.area==="all"?"the Neighbor Groups in your Care Group area":"this Leader Neighbor's Neighbor Group")+".</p>":"")+'<div id="mapinfo"></div>';
   if(r==="admin")o+=mapAreaCard();
   const key=UI.who+"|"+UI.area,foc=UI.mapFocus;UI.mapFocus=null;if(MV.cmap&&MV.cmap.key!==key)delete MV.cmap;
@@ -167,7 +168,7 @@ function hhWhere(h){const c=h.cen,g=c&&c.gps;if(!c)return"";
   o+='<div class="row">'+(TABS[me().role].some(t=>t[0]==="cmap")?'<button data-act="showmap" data-id="'+h.id+'">Show among the other households</button>':"")+'<a class="btnlink" href="'+mapsUrl(g)+'" target="_blank" rel="noopener">Open in a maps app</a></div>'+
     "<p class='small muted'>Latitude "+g.lat+", longitude "+g.lon+", recorded at the census"+(c.d?" on "+fmtD(c.d):"")+" and accurate to about "+Math.round(g.acc)+" m. The maps app needs an internet connection.</p></div>";
   return o;}
-function mapPick(id){const el=$("#mapinfo");if(!el)return;if(!id){el.innerHTML="";return;}const h=IX.hh[id],ps=IX.hhP[id]||[],full=["admin","prom"].includes(me().role);
+function mapPick(id){const el=$("#mapinfo");if(!el)return;if(!id){el.innerHTML="";return;}const h=IX.hh[id],ps=IX.hhP[id]||[],full=mapFull(me().role);
   if(mapField(me().role)){const g=h.cen.gps,ln=IX.w[h.ln]||{};
     el.innerHTML='<div class="card"><h2>'+esc(h.head)+' <span class="muted small">'+esc(h.no)+"</span></h2><div class='row'>"+chip(hhMonthly(h)?["Monthly","info"]:["Screening","good"])+chip(["Location accurate to about "+Math.round(g.acc)+" m",g.acc<=CZ.good?"good":g.acc<=CZ.poor?"warn":"bad"])+"</div><p>"+(h.cen.lm?esc(h.cen.lm)+".":"No description was written at the census.")+"</p><p class='small muted'>"+(me().role==="lnt"?"Leader Neighbor: "+esc(ln.name||"")+". ":"")+(h.last?"Last visit "+fmtD(h.last)+".":"Not yet visited.")+'</p><div class="row"><button class="pri" data-hh="'+h.id+'">Open the household</button><a class="btnlink" href="'+mapsUrl(g)+'" target="_blank" rel="noopener">Open in a maps app</a></div></div>';return;}
   el.innerHTML='<div class="card"><h2>'+esc(h.head)+' <span class="muted small">'+esc(h.no)+"</span></h2><div class='row'>"+chip(CST[h.cen.st])+(h.cen.st==="cb"&&h.cen.why?chip([CZCB[h.cen.why],"warn"]):"")+chip(["Location accurate to about "+Math.round(h.cen.gps.acc)+" m",h.cen.gps.acc<=CZ.good?"good":h.cen.gps.acc<=CZ.poor?"warn":"bad"])+"</div><p class='small'>"+(h.cen.lm?esc(h.cen.lm)+". ":"")+fmtD(h.cen.d)+", "+esc((IX.w[h.cen.by]||{}).name||"")+"."+(h.cen.st==="done"?" "+ps.length+" adult"+(ps.length===1?"":"s")+" listed.":"")+"</p>"+
