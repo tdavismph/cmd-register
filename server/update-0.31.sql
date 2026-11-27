@@ -4,6 +4,18 @@
 -- and adds one table and three functions for the plan of Neighbor Groups and Care Group areas. It changes no data.
 -- The earlier updates (0.18, 0.23, 0.24, 0.25, 0.27) should already have been run.
 
+-- Guard: stop at once if this is the CBIO+ MCH Register's database (project cbio-home-visit-register) and not the CMD Register's (project cmd-register).
+do $guard$
+declare n bigint := 0;
+begin
+  if to_regclass('public.cbio_workers') is not null then
+    execute 'select count(*) from public.cbio_workers' into n;
+    if n > 0 then
+      raise exception 'WRONG PROJECT: this database holds the CBIO+ MCH Register (cbio_workers has % rows). This script is for the CMD Register. Nothing was changed. Open the Supabase project "cmd-register" and run it there.', n;
+    end if;
+  end if;
+end $guard$;
+
 create or replace function public.cmd_save_worker(p_token text, p_worker jsonb, p_pin text)
 returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare me public.cmd_workers; w public.cmd_workers; v_id text; v_role text; v_lnt text; v_prom text; v_cg int;

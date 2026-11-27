@@ -5,6 +5,18 @@
 
 -- The census map chosen by the administrator in place of the built-in one (build 0.27).
 -- The trimmed map is kept as text in pieces; the settings row 'map' says which version is in use, and who chose it and when.
+-- Guard: stop at once if this is the CBIO+ MCH Register's database (project cbio-home-visit-register) and not the CMD Register's (project cmd-register).
+do $guard$
+declare n bigint := 0;
+begin
+  if to_regclass('public.cbio_workers') is not null then
+    execute 'select count(*) from public.cbio_workers' into n;
+    if n > 0 then
+      raise exception 'WRONG PROJECT: this database holds the CBIO+ MCH Register (cbio_workers has % rows). This script is for the CMD Register. Nothing was changed. Open the Supabase project "cmd-register" and run it there.', n;
+    end if;
+  end if;
+end $guard$;
+
 create table if not exists public.cmd_map (
   v     text not null,
   part  int  not null,
